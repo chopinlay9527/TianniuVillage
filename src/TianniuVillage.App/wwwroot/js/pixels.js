@@ -44,9 +44,9 @@ function tinyCell(pack, idx) {
   return out;
 }
 // 地形: 全部选用纯色平格（t0 草 / t25 土，零杂点），风格极简统一
+// 水体为纯色填充（基色取自 Tiny 水系实测 t77 底色），消除逐格重复的波纹花纹
+const TINY_FLAT_WATER = { 1: "#91a0b8", 0: "#60708d" }; // 浅水 / 深水
 const TINY_TERRAIN = {
-  0: { pack: "town", base: [77], tint: "rgba(15,35,70,0.38)" },        // 深水
-  1: { pack: "town", base: [77], tint: null },                         // 浅水
   2: { pack: "town", base: [25], tint: null },                         // 沙滩
   3: { pack: "town", base: [0], tint: null },                          // 草地
   4: { pack: "town", base: [0], tint: "rgba(20,60,20,0.32)" },         // 森林
@@ -55,6 +55,12 @@ const TINY_TERRAIN = {
 };
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
+  const water = TINY_FLAT_WATER[terrain];
+  if (water) {
+    ctx.fillStyle = water;
+    ctx.fillRect(px, py, 16, 16);
+    return;
+  }
   const def = TINY_TERRAIN[terrain];
   if (def && TinySheets[def.pack]) {
     const idx = def.base[(tx * 31 + ty * 57) % def.base.length];
