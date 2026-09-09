@@ -87,6 +87,14 @@ class WorldView {
       if (!r) continue;
       drawResource(ctx, r, (r.x - x0) * TILE, (r.y - y0) * TILE);
     }
+    // 双格树：紧邻本 chunk 下方那行的树会向上伸出 16px，补画进本 chunk 底行
+    const belowY = y0 + CHUNK;
+    if (belowY < this.mapH) {
+      for (const r of this.resById.values()) {
+        if (r.y !== belowY || r.x < x0 || r.x >= x0 + CHUNK) continue;
+        drawResource(ctx, r, (r.x - x0) * TILE, (r.y - y0) * TILE);
+      }
+    }
     if (this.chunkSprites[idx]) {
       this.chunkSprites[idx].texture.update();
     }
@@ -108,7 +116,15 @@ class WorldView {
     for (const idx of dirty) this.redrawChunk(idx % this.cx, Math.floor(idx / this.cx));
   }
 
+  // 双格树向上伸出 16px：位于 chunk 顶行的资源变化时，上方 chunk 也需重绘
+  markTreeTopDirty(x, y, dirtySet) {
+    if (y % CHUNK !== 0) return;
+    const ci = this.chunkIndex(x, y - 1);
+    if (ci >= 0) dirtySet.add(ci);
+  }
+
   applyResourceDelta(list) {
+    const extraDirty = new Set();
     for (const d of list) {
       if (d.op === 2) {
         const old = this.resById.get(d.id);
@@ -118,6 +134,7 @@ class WorldView {
             this.chunkRes[ci] = this.chunkRes[ci].filter(id => id !== d.id);
             this.redrawChunk(Math.floor(old.x / CHUNK), Math.floor(old.y / CHUNK));
           }
+          this.markTreeTopDirty(old.x, old.y, extraDirty);
         }
         this.resById.delete(d.id);
       } else {
@@ -137,8 +154,10 @@ class WorldView {
           this.chunkRes[ci].push(r.id);
           this.redrawChunk(Math.floor(r.x / CHUNK), Math.floor(r.y / CHUNK));
         }
+        this.markTreeTopDirty(r.x, r.y, extraDirty);
       }
     }
+    for (const idx of extraDirty) this.redrawChunk(idx % this.cx, Math.floor(idx / this.cx));
   }
 
   terrainAt(x, y) {

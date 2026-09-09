@@ -81,7 +81,7 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
       drawn = true;
     } else if (entry.tiles && Atlas.img) {
       const id = entry.tiles[(tx * 31 + ty * 57) % entry.tiles.length];
-      ctx.drawImage(atlasCell(id), px, py);
+      ctx.drawImage(atlasCell(id), 0, 0, 16, 16, px, py, 16, 16);
       if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, 16, 16); }
       if (entry.cracks) {
         const h1 = hash01(tx, ty, 500);
@@ -116,12 +116,31 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
   }
 }
 
+// 双格树：Tiny Town 的树 = 树冠格(上) + 树干格(下) 垂直拼接，合成 16x32
+const treePairCache = new Map();
+function atlasTreePair(topId, botId) {
+  const key = topId + "+" + botId;
+  if (treePairCache.has(key)) return treePairCache.get(key);
+  const c = mkCanvas(16, 32);
+  const ctx = c.getContext("2d");
+  ctx.drawImage(atlasCell(topId), 0, 0, 16, 16, 0, 0, 16, 16);
+  ctx.drawImage(atlasCell(botId), 0, 0, 16, 16, 0, 16, 16, 16);
+  treePairCache.set(key, c);
+  return c;
+}
+
 function drawTree(ctx, px, py, seed) {
   if (Atlas.img && TEX.tree && TEX.tree.tiles.length) {
+    const entry = TEX.tree.tiles[seed % TEX.tree.tiles.length];
     ctx.fillStyle = TEX.tree.shadow;
-    ctx.fillRect(px + 2, py + 13, 12, 2);
-    const id = TEX.tree.tiles[seed % TEX.tree.tiles.length];
-    ctx.drawImage(atlasCell(id), px, py);
+    if (Array.isArray(entry)) {
+      // 双格树：树干格在地面格，树冠向上伸出 16px
+      ctx.fillRect(px + 3, py + 12, 10, 2);
+      ctx.drawImage(atlasTreePair(entry[0], entry[1]), 0, 0, 16, 32, px, py - 16, 16, 32);
+    } else {
+      ctx.fillRect(px + 2, py + 13, 12, 2);
+      ctx.drawImage(atlasCell(entry), 0, 0, 16, 16, px, py, 16, 16);
+    }
     return;
   }
   const trunkX = px + 7;
@@ -143,7 +162,7 @@ function drawBush(ctx, px, py, hasBerries) {
   if (Atlas.img && TEX.bush) {
     ctx.fillStyle = TEX.bush.shadow;
     ctx.fillRect(px + 3, py + 13, 10, 2);
-    ctx.drawImage(atlasCell(hasBerries ? TEX.bush.withBerries : TEX.bush.empty), px, py);
+    ctx.drawImage(atlasCell(hasBerries ? TEX.bush.withBerries : TEX.bush.empty), 0, 0, 16, 16, px, py, 16, 16);
     if (hasBerries) {
       ctx.fillStyle = TEX.bush.berryColor;
       ctx.fillRect(px + 6, py + 8, 2, 2);
@@ -168,7 +187,7 @@ function drawMushroom(ctx, px, py, seed) {
   if (m.tiles && m.tiles.length && Atlas.img) {
     ctx.fillStyle = "rgba(30,60,25,0.2)";
     ctx.fillRect(px + 4, py + 13, 8, 2);
-    ctx.drawImage(atlasCell(m.tiles[(seed || 0) % m.tiles.length]), px, py);
+    ctx.drawImage(atlasCell(m.tiles[(seed || 0) % m.tiles.length]), 0, 0, 16, 16, px, py, 16, 16);
     return;
   }
   ctx.fillStyle = m.stem || "#e8ddc8";
@@ -196,7 +215,7 @@ function drawStone(ctx, px, py, seed) {
 
 function drawHerb(ctx, px, py) {
   if (Atlas.img && TEX.herb) {
-    ctx.drawImage(atlasCell(TEX.herb.tile), px, py);
+    ctx.drawImage(atlasCell(TEX.herb.tile), 0, 0, 16, 16, px, py, 16, 16);
     return;
   }
   ctx.fillStyle = "#5aa06a";
@@ -307,7 +326,7 @@ function drawResource(ctx, r, px, py) {
     case ResKind.Herb: drawHerb(ctx, px, py); break;
     case ResKind.FlaxPatch:
       if (Atlas.img && TEX.flax) {
-        ctx.drawImage(atlasCell(TEX.flax.tile), px, py);
+        ctx.drawImage(atlasCell(TEX.flax.tile), 0, 0, 16, 16, px, py, 16, 16);
         ctx.fillStyle = TEX.flax.tint;
         ctx.fillRect(px + 3, py + 5, 10, 9);
         ctx.fillStyle = TEX.flax.flowerColor;
@@ -585,6 +604,12 @@ const BuildingStyle = {
   farm:      { roof: "#8a6a3c", wall: "#9a7a4c", w: 3, h: 3 }
 };
 
+function rgbaFromHex(hex, alpha) {
+  const n = parseInt(String(hex).replace("#", ""), 16);
+  if (isNaN(n)) return "rgba(160,120,80," + alpha + ")";
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
 function makeBuildingTexture(key, state) {
   const s = BuildingStyle[key] || BuildingStyle.house;
   const W = s.w * TILE, H = s.h * TILE;
@@ -671,17 +696,40 @@ function makeBuildingTexture(key, state) {
   }
 
   const roofH = Math.floor(H * 0.45);
-  ctx.fillStyle = s.wall;
-  ctx.fillRect(3, roofH - 2, W - 6, H - roofH - 1);
-  ctx.fillStyle = shade(s.wall, -24);
-  ctx.fillRect(3, roofH - 2, W - 6, 2);
-  ctx.fillStyle = s.roof;
-  for (let i = 0; i < roofH; i++) {
-    const inset = Math.abs(i - roofH / 2) < 1 ? 0 : Math.max(0, Math.floor((roofH / 2 - Math.abs(i - roofH / 2)) * 0.9));
-    ctx.fillRect(1 + i * 0 + inset, i + 1, W - 2 - inset * 2, 1);
+  if (Atlas.img && TEX.building) {
+    // 拼接纹理：atlas 木板墙 + 砖红屋顶，叠各建筑主题色罩
+    const wallC = atlasCell(TEX.building.wall);
+    const roofC = atlasCell(TEX.building.roof);
+    for (let ty = 0; ty < s.h; ty++)
+      for (let tx = 0; tx < s.w; tx++)
+        ctx.drawImage(wallC, 0, 0, TILE, TILE, tx * TILE, ty * TILE, TILE, TILE);
+    ctx.fillStyle = rgbaFromHex(s.wall, 0.45);
+    ctx.fillRect(0, 0, W, H);
+    const roofPx = s.h === 1 ? 7 : Math.max(TILE, Math.round(H * 0.45));
+    for (let y = 0; y < roofPx; y += TILE)
+      for (let x = 0; x < W; x += TILE) {
+        const hh = Math.min(TILE, roofPx - y);
+        ctx.drawImage(roofC, 0, 0, TILE, hh, x, y, TILE, hh);
+      }
+    ctx.fillStyle = rgbaFromHex(s.roof, 0.5);
+    ctx.fillRect(0, 0, W, roofPx);
+    ctx.fillStyle = shade(s.roof, -40);
+    ctx.fillRect(0, roofPx - 2, W, 2);
+    ctx.strokeStyle = "rgba(30,22,14,0.45)";
+    ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+  } else {
+    ctx.fillStyle = s.wall;
+    ctx.fillRect(3, roofH - 2, W - 6, H - roofH - 1);
+    ctx.fillStyle = shade(s.wall, -24);
+    ctx.fillRect(3, roofH - 2, W - 6, 2);
+    ctx.fillStyle = s.roof;
+    for (let i = 0; i < roofH; i++) {
+      const inset = Math.abs(i - roofH / 2) < 1 ? 0 : Math.max(0, Math.floor((roofH / 2 - Math.abs(i - roofH / 2)) * 0.9));
+      ctx.fillRect(1 + i * 0 + inset, i + 1, W - 2 - inset * 2, 1);
+    }
+    ctx.fillStyle = shade(s.roof, -28);
+    ctx.fillRect(1, roofH - 1, W - 2, 2);
   }
-  ctx.fillStyle = shade(s.roof, -28);
-  ctx.fillRect(1, roofH - 1, W - 2, 2);
   ctx.fillStyle = "#4a3a28";
   ctx.fillRect(Math.floor(W / 2) - 2, H - 7, 4, 6);
   ctx.fillStyle = "#ffd98a";
