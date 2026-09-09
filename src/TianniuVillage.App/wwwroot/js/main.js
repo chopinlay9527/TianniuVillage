@@ -99,6 +99,16 @@ function connectHost() {
 }
 
 async function onInit(msg) {
+  try {
+    await doInit(msg);
+  } catch (e) {
+    try {
+      window.chrome.webview.postMessage(JSON.stringify({ type: "jserror", msg: "onInit: " + (e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : e) }));
+    } catch (_) { }
+  }
+}
+
+async function doInit(msg) {
   if (Object.keys(CharSheets).length === 0) await loadCharSheets();
   lastLogSeq = Math.max(0, ...(msg.logs || []).map(l => l.seq));
   gameView.buildFromInit(msg);

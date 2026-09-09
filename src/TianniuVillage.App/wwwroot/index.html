@@ -135,12 +135,20 @@
 
 <script src="vendor/pixi.min.js"></script>
 <script>
-window.onerror = function (msg, src, line, col) {
+window.__errs = [];
+function __postErr(msg) {
+  window.__errs.push(msg);
   var el = document.getElementById("loading");
-  if (el) el.innerHTML = "<span style='color:#e8734a;font-size:14px'>JS错误: " + msg + "<br>" + (src||"") + ":" + line + "</span>";
-  try { window.chrome.webview.postMessage(JSON.stringify({ type: "jserror", msg: msg + " @" + (src || "") + ":" + line + ":" + col })); } catch (e) { }
+  if (el) el.innerHTML = "<span style='color:#e8734a;font-size:14px'>JS错误: " + msg + "</span>";
+  try { window.chrome.webview.postMessage(JSON.stringify({ type: "jserror", msg: msg })); } catch (e) { }
+}
+window.onerror = function (msg, src, line, col, err) {
+  __postErr(msg + " @" + (src || "") + ":" + line + ":" + col + " || " + (err && err.stack ? err.stack.split("\n").slice(0, 5).join(" <- ") : ""));
   return false;
 };
+window.addEventListener("unhandledrejection", function (e) {
+  __postErr("Promise: " + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+});
 </script>
 <script src="js/pixels.js"></script>
 <script src="js/assets.js"></script>

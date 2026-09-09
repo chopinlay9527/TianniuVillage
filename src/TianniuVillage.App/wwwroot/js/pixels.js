@@ -263,7 +263,7 @@ function makeVillagerTexture(sex, stage, id) {
         ctx.drawImage(legacy, face * 14 + fb * 56, 0, 14, 18, (f * 4 + face) * 16 + 1, 0, 14, 16);
       }
     }
-    return PIXI.Texture.from(c);
+    return c;
   }
 
   const rows = charRows(key);
@@ -291,7 +291,7 @@ function makeVillagerTexture(sex, stage, id) {
       ctx.drawImage(sheet, srcCol * 16, srcRow * 16, 16, 16, (f * 4 + face) * 16, dy, 16, 16);
     }
   }
-  return PIXI.Texture.from(c);
+  return c;
 }
 
 function makeVillagerTextureProc(hue, clothesColor) {

@@ -28,6 +28,14 @@ public sealed class CommandProcessor
             {
                 case "jserror":
                     _manager.Game.Log("[系统] " + (root.TryGetProperty("msg", out var m) ? m.GetString() : "?"), LogSeverity.Debug);
+                    try
+                    {
+                        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TianniuVillage");
+                        Directory.CreateDirectory(dir);
+                        File.AppendAllText(Path.Combine(dir, "jserrors.log"),
+                            $"{DateTime.Now:HH:mm:ss} " + (root.TryGetProperty("msg", out var mm) ? mm.GetString() : "?") + Environment.NewLine);
+                    }
+                    catch { }
                     break;
                 case "ready":
                     _postInit(JsonSerializer.Serialize(_manager.BuildInit()));
