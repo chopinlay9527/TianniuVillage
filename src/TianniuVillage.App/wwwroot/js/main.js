@@ -140,6 +140,10 @@ function onUpdate(msg) {
     if (fresh.length) { UI.addLogs(fresh); lastLogSeq = Math.max(lastLogSeq, ...fresh.map(l => l.seq)); }
   }
   if (msg.msgs && msg.msgs.length) UI.addSocialMsgs(msg.msgs);
+  const fesEl = document.getElementById("ti-festival");
+  if (fesEl) fesEl.classList.toggle("hidden", !msg.festival);
+  const merEl = document.getElementById("ti-merchant");
+  if (merEl) merEl.classList.toggle("hidden", !msg.merchant);
   weatherLayer.setWeather(msg.stats.weather);
   cloudLayer.setWeather(msg.stats.weather);
   UI.drawMinimap(gameView, camera);

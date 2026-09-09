@@ -2,7 +2,7 @@ namespace TianniuVillage.Core;
 
 public sealed record VillagerView(int id, string n, int x, int y, int act, string job, int sex, string stage,
     float hp, float sa, float en, float st, float me, float ha, float th, int facing, float prog, bool mv,
-    string? carry, string? speech, bool si);
+    string? carry, string? speech, bool si, string? dis, string? inj, int role, bool mb);
 
 public sealed record BuildingView(int id, string k, int x, int y, int state, float prog, int[] crop);
 
@@ -50,7 +50,11 @@ public sealed partial class Game
             v.Facing, v.MoveProgress, v.Path is { Count: > 0 },
             v.CarryLoad.Count > 0 ? string.Join(",", v.CarryLoad.Select(c => $"{ItemDefs.Name(c.Key)}×{c.Value}")) : null,
             v.SpeechTicksLeft > 0 ? v.Speech : null,
-            v.SleepingIndoor)).ToList();
+            v.SleepingIndoor,
+            v.Ill && v.Disease != DiseaseType.None ? DiseaseInfo.Zh(v.Disease) : null,
+            v.Injury != InjuryType.None ? InjuryZh(v.Injury) : null,
+            (int)v.Role,
+            v.MentalBreaking)).ToList();
 
         var buildings = World.Buildings.Select(b => new BuildingView(
             b.Id, b.Key, b.X, b.Y, (int)b.State,
@@ -95,7 +99,9 @@ public sealed partial class Game
             res = resDelta,
             road = roadDelta,
             logs,
-            msgs = socialMsgs
+            msgs = socialMsgs,
+            festival = CurrentFestival != null ? new { desc = CurrentFestival.Description, left = Math.Max(0, CurrentFestival.Tick + CurrentFestival.DurationTicks - Tick) } : null,
+            merchant = Merchant is { Active: true } ? new { left = Math.Max(0, Merchant.DepartureTick - Tick) } : null
         };
     }
 
@@ -123,7 +129,11 @@ public sealed partial class Game
                 Round(v.Health), Round(v.Satiety), Round(v.Energy), Round(v.Stamina),
                 Round(v.Mood), Round(v.Happiness), Round(v.Thirst),
                 v.Facing, v.MoveProgress, v.Path is { Count: > 0 }, null, (string?)null,
-                v.SleepingIndoor)).ToList(),
+                v.SleepingIndoor,
+                v.Ill && v.Disease != DiseaseType.None ? DiseaseInfo.Zh(v.Disease) : null,
+                v.Injury != InjuryType.None ? InjuryZh(v.Injury) : null,
+                (int)v.Role,
+                v.MentalBreaking)).ToList(),
             buildings = World.Buildings.Select(b => new BuildingView(
                 b.Id, b.Key, b.X, b.Y, (int)b.State,
                 b.Def.WorkMinutes > 0 ? (float)b.WorkDone / b.Def.WorkMinutes : 1f,
@@ -177,5 +187,21 @@ public sealed partial class Game
         AgeStage.Child => v.Age < 12 ? "孩童" : "少年",
         AgeStage.Adult => "成年",
         _ => "老年"
+    };
+
+    public static string InjuryZh(InjuryType t) => t switch
+    {
+        InjuryType.Bruise => "擦伤",
+        InjuryType.Cut => "划伤",
+        InjuryType.Fracture => "骨折",
+        _ => ""
+    };
+
+    public static string RoleZh(VillageRole r) => r switch
+    {
+        VillageRole.Elder => "长老",
+        VillageRole.HuntChief => "猎队头领",
+        VillageRole.Healer => "医师",
+        _ => ""
     };
 }

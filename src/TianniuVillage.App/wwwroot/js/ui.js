@@ -140,7 +140,14 @@ const UI = {
       row.dataset.id = v.id;
       row.dataset.name = v.n;
       const dot = v.act === 5 ? "🌙" : v.speech ? "💬" : "";
-      row.innerHTML = `<span class="vn">${v.n}</span><span class="va">${ACT_ZH[v.act] || ""}</span><span class="vd">${dot}</span>`;
+      let badge = "";
+      if (v.role === 1) badge += "<span class='vb role'>长</span>";
+      else if (v.role === 2) badge += "<span class='vb role'>猎</span>";
+      else if (v.role === 3) badge += "<span class='vb role'>医</span>";
+      if (v.dis) badge += `<span class='vb ill'>${v.dis}</span>`;
+      if (v.inj) badge += `<span class='vb inj'>${v.inj}</span>`;
+      if (v.mb) badge += "<span class='vb mb'>崩溃</span>";
+      row.innerHTML = `<span class="vn">${v.n}${badge}</span><span class="va">${ACT_ZH[v.act] || ""}</span><span class="vd">${dot}</span>`;
       row.style.display = !this.searchText || v.n.includes(this.searchText) ? "" : "none";
       frag.appendChild(row);
     }
@@ -157,8 +164,9 @@ const UI = {
   showDetail(v) {
     const card = this.$("detail-card");
     card.classList.remove("hidden");
+    const ROLE_ZH = { 1: "长老", 2: "猎队头领", 3: "医师" };
     this.$("dc-name").textContent = v.n;
-    this.$("dc-sub").textContent = `${v.stage || ""} · ${v.sex === 0 ? "男" : "女"}`;
+    this.$("dc-sub").textContent = `${v.stage || ""} · ${v.sex === 0 ? "男" : "女"}${v.role ? " · " + (ROLE_ZH[v.role] || "") : ""}`;
     const bar = (id, val) => {
       const el = this.$(id);
       el.style.width = `${Math.max(2, Math.min(100, val))}%`;
@@ -166,6 +174,15 @@ const UI = {
     bar("b-satiety", v.sa); bar("b-thirst", v.th); bar("b-energy", v.en); bar("b-stamina", v.st);
     bar("b-mood", v.me); bar("b-happy", v.ha); bar("b-health", v.hp);
     this.$("dc-activity").textContent = "正在：" + (ACT_ZH[v.act] || "…");
+    const st = this.$("dc-status");
+    if (st) {
+      const parts = [];
+      if (v.dis) parts.push(`🤒 ${v.dis}`);
+      if (v.inj) parts.push(`🩹 ${v.inj}`);
+      if (v.mb) parts.push("😵 精神崩溃");
+      st.textContent = parts.join("　");
+      st.style.display = parts.length ? "" : "none";
+    }
   },
 
   addLogs(entries) {

@@ -39,6 +39,10 @@ public sealed class SaveData
     public int NextVillagerId;
     public int NextAnimalId;
     public int NextJobId;
+    public Festival? CurrentFestival;
+    public MerchantVisit? Merchant;
+    public int LastFestivalDay;
+    public int LastMerchantDay;
 }
 
 public static class SaveService
@@ -93,7 +97,11 @@ public static class SaveService
             NextBuildingId = game.World.NextBuildingId,
             NextVillagerId = game.World.NextVillagerId,
             NextAnimalId = game.World.NextAnimalId,
-            NextJobId = game.World.NextJobId
+            NextJobId = game.World.NextJobId,
+            CurrentFestival = game.CurrentFestival,
+            Merchant = game.Merchant,
+            LastFestivalDay = game.LastFestivalDay,
+            LastMerchantDay = game.LastMerchantDay
         };
 
         var dir = Path.GetDirectoryName(path);
@@ -169,6 +177,10 @@ public static class SaveService
         game.World.NextVillagerId = data.NextVillagerId;
         game.World.NextAnimalId = data.NextAnimalId;
         game.World.NextJobId = data.NextJobId;
+        game.CurrentFestival = data.CurrentFestival;
+        game.Merchant = data.Merchant;
+        game.LastFestivalDay = data.LastFestivalDay == 0 ? -100 : data.LastFestivalDay;
+        game.LastMerchantDay = data.LastMerchantDay == 0 ? -100 : data.LastMerchantDay;
         return game;
     }
 }

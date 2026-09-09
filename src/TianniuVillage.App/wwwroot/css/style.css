@@ -300,3 +300,9 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; font-size: 12p
 #b-happy { background: #d07a9a; }
 #b-health { background: var(--accent-blue); }
 #b-thirst { background: #6ab0d0; }
+
+.vb { display:inline-block; margin-left:4px; padding:0 4px; font-size:10px; border-radius:3px; vertical-align:middle; }
+.vb.role { background:#4a3f2a; color:#e8c56a; }
+.vb.ill { background:#4a2a2a; color:#e88; }
+.vb.inj { background:#4a3a20; color:#e8a860; }
+.vb.mb { background:#3a2a4a; color:#b89ae8; }

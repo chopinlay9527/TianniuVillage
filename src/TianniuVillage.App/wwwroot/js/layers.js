@@ -7,7 +7,7 @@ const ACT_ZH = {
   6: "休息", 7: "聊天", 8: "上学", 9: "玩耍", 10: "养病", 11: "切磋", 12: "喝水", 13: "钻研"
 };
 
-const WEATHER_ZH = ["晴", "多云", "雨", "暴风雨", "雪"];
+const WEATHER_ZH = ["晴", "多云", "雨", "暴风雨", "雪", "雾"];
 const SEASON_ZH = ["春", "夏", "秋", "冬"];
 
 class VillagerLayer {
