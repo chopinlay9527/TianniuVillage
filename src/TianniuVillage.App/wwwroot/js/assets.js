@@ -20,19 +20,40 @@ const CHAR_DEFS = {
 
 // 加载的角色表: key -> img
 const CharSheets = {};
+// 动物/家畜表: key -> img（Ninja Adventure 同一素材包）
+const AnimalSheets = {};
+const ANIMAL_FILES = [
+  "Chicken_SpriteSheetWhite.png", "Chicken_SpriteSheetBrown.png",
+  "Chicken_SpriteSheetCute.png", "Chicken_SpriteSheetBlack.png",
+  "Pig_SpriteSheetPink.png", "Pig_SpriteSheetBlack.png", "Pig_SpriteSheetRed.png",
+  "Cow_SpriteSheetWhite.png", "Cow_SpriteSheetWhiteSide.png"
+];
 let loadPromise = null;
+
+function loadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => { console.warn("素材加载失败: " + url); resolve(null); };
+    img.src = url;
+  });
+}
 
 async function loadCharSheets(onProgress) {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
     const keys = Object.keys(CHAR_DEFS);
     let done = 0;
-    await Promise.all(keys.map(k => new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => { CharSheets[k] = img; done++; onProgress && onProgress(done, keys.length); resolve(); };
-      img.onerror = () => { console.warn("角色素材加载失败: " + k); resolve(); };
-      img.src = "assets/char/" + k + ".png";
-    })));
+    await Promise.all(keys.map(async (k) => {
+      const img = await loadImage("assets/char/" + k + ".png");
+      if (img) CharSheets[k] = img;
+      done++; onProgress && onProgress(done, keys.length + ANIMAL_FILES.length);
+    }));
+    for (const f of ANIMAL_FILES) {
+      const img = await loadImage("assets/animal/" + f);
+      if (img) AnimalSheets[f] = img;
+      done++; onProgress && onProgress(done, keys.length + ANIMAL_FILES.length);
+    }
   })();
   return loadPromise;
 }

@@ -4,7 +4,8 @@ public sealed record VillagerView(int id, string n, int x, int y, int act, strin
     float hp, float sa, float en, float st, float me, float ha, float th, int facing, float prog, bool mv,
     string? carry, string? speech, bool si, string? dis, string? inj, int role, bool mb);
 
-public sealed record BuildingView(int id, string k, int x, int y, int state, float prog, int[] crop);
+public sealed record BuildingView(int id, string k, int x, int y, int state, float prog, int[] crop,
+    string? lt, int lc);
 
 public sealed record ResourceView(int id, int x, int y, int k, int a, bool berries, int op);
 
@@ -59,7 +60,7 @@ public sealed partial class Game
         var buildings = World.Buildings.Select(b => new BuildingView(
             b.Id, b.Key, b.X, b.Y, (int)b.State,
             b.Def.WorkMinutes > 0 ? (float)b.WorkDone / b.Def.WorkMinutes : 1f,
-            b.CropPhase)).ToList();
+            b.CropPhase, b.LivestockType.Length > 0 ? b.LivestockType : null, b.LivestockCount)).ToList();
 
         var animals = World.Animals.Select(a => new AnimalView(a.Id, a.Kind, a.X, a.Y)).ToList();
 
@@ -137,7 +138,7 @@ public sealed partial class Game
             buildings = World.Buildings.Select(b => new BuildingView(
                 b.Id, b.Key, b.X, b.Y, (int)b.State,
                 b.Def.WorkMinutes > 0 ? (float)b.WorkDone / b.Def.WorkMinutes : 1f,
-                b.CropPhase)).ToList(),
+                b.CropPhase, b.LivestockType.Length > 0 ? b.LivestockType : null, b.LivestockCount)).ToList(),
             animals = World.Animals.Select(a => new AnimalView(a.Id, a.Kind, a.X, a.Y)).ToList(),
             stats = BuildStats(),
             logs

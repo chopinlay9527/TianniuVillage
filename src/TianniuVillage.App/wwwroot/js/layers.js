@@ -259,6 +259,8 @@ class BuildingLayer {
       if (s._state !== b.state) {
         s._state = b.state;
         s.texture = this.tex(b.k, b.state);
+        if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; s._livestockKey = null; }
+        if (s._cropSprite) { s._cropSprite.destroy(); s._cropSprite = null; s._crop = null; }
       }
       if (b.k === "farm") {
         const growing = (b.crop || []).some(c => c === 2);
@@ -275,10 +277,36 @@ class BuildingLayer {
           }
         }
       }
+      if ((b.k === "pen" || b.k === "ranch") && b.lt && b.lc > 0) {
+        const key2 = b.lt + ":" + b.lc;
+        if (s._livestockKey !== key2) {
+          s._livestockKey = key2;
+          if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; }
+          s._livestockSprites = [];
+          const style = BuildingStyle[b.k] || { w: 2, h: 2 };
+          const cap = Math.min(b.lc, Math.max(4, style.w * style.h));
+          for (let i = 0; i < cap; i++) {
+            const tex2 = PIXI.Texture.from(makeLivestockTexture(b.lt, b.id * 31 + i * 17));
+            const sp = new PIXI.Sprite(tex2);
+            sp.anchor.set(0.5, 1);
+            sp.alpha = 0.98;
+            const col = i % style.w;
+            const row = Math.floor(i / style.w) % 3;
+            const jx = (((b.id * 13 + i * 31) % 60) / 100) - 0.3;
+            sp.position.set((b.x + col + 0.5 + jx) * TILE, (b.y + style.h - 0.15 - row * 0.34) * TILE);
+            this.container.addChild(sp);
+            s._livestockSprites.push(sp);
+          }
+        }
+      } else if (s._livestockKey) {
+        s._livestockKey = null;
+        if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; }
+      }
     }
     for (const [id, s] of this.sprites) {
       if (!seen.has(id)) {
         if (s._cropSprite) s._cropSprite.destroy();
+        if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; }
         s.destroy();
         this.sprites.delete(id);
       }

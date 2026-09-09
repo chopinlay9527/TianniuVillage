@@ -76,4 +76,35 @@ public class LivestockTests
 
         Assert.True(bred, "牧场应能自繁衍（10% 概率 × 200 次尝试应至少成功一次）");
     }
+
+    [Fact]
+    public void BuildingView_ExposesLivestockToFrontend()
+    {
+        var game = Game.NewGame(2024);
+        var (cx, cy) = game.World.SettleCenter;
+        game.World.Buildings.Add(new Building
+        {
+            Id = 601, Key = "ranch", X = cx + 6, Y = cy + 6,
+            State = BuildingState.Complete,
+            LivestockType = "sheep",
+            LivestockCount = 5
+        });
+
+        object update = game.BuildUpdate(0);
+        var prop = update.GetType().GetProperty("buildings");
+        Assert.NotNull(prop);
+        var buildings = (System.Collections.IEnumerable)prop!.GetValue(update)!;
+        bool found = false;
+        foreach (var b in buildings)
+        {
+            if (b.GetType().GetProperty("id")!.GetValue(b) is int id && id == 601)
+            {
+                Assert.Equal("sheep", b.GetType().GetProperty("lt")!.GetValue(b));
+                Assert.Equal(5, b.GetType().GetProperty("lc")!.GetValue(b));
+                found = true;
+                break;
+            }
+        }
+        Assert.True(found, "ranch 未出现在 update 建筑列表");
+    }
 }

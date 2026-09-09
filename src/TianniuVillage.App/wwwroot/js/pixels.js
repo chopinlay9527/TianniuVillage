@@ -351,30 +351,94 @@ function shade(hex, amt) {
 }
 
 function makeAnimalTexture(kind) {
-  const c = mkCanvas(12, 10);
+  const c = mkCanvas(16, 16);
   const ctx = c.getContext("2d");
+  const seed = kind === "deer" ? 1 : 2;
   if (kind === "deer") {
+    ctx.fillStyle = "#8a5f3c"; // 鹿身
+    ctx.fillRect(4, 6, 8, 6);
     ctx.fillStyle = "#a4744a";
-    ctx.fillRect(2, 3, 7, 4);
-    ctx.fillRect(8, 2, 3, 3);
-    ctx.fillStyle = "#8a5f3c";
-    ctx.fillRect(2, 6, 6, 2);
-    ctx.fillRect(3, 8, 1, 2); ctx.fillRect(6, 8, 1, 2);
-    ctx.fillStyle = "#d8c8a8";
-    ctx.fillRect(9, 1, 2, 1);
+    ctx.fillRect(5, 5, 6, 5);
+    ctx.fillRect(9, 4, 4, 4);
     ctx.fillStyle = "#4a3a28";
-    ctx.fillRect(5, 3, 1, 1);
-  } else {
+    ctx.fillRect(4, 6, 1, 1);
+    ctx.fillRect(11, 6, 1, 1);
+    ctx.fillRect(5, 5, 1, 1);
+    ctx.fillRect(10, 5, 1, 1);
+    ctx.fillStyle = "#d8c8a8"; // 角
+    ctx.fillRect(7, 2, 1, 2); ctx.fillRect(8, 3, 1, 1);
+    ctx.fillRect(10, 2, 1, 2); ctx.fillRect(9, 3, 1, 1);
+    ctx.fillStyle = "#6b4a2c"; // 腿
+    ctx.fillRect(5, 12, 2, 4); ctx.fillRect(9, 12, 2, 4);
+  } else if (kind === "rabbit") {
     ctx.fillStyle = "#c9c2b4";
-    ctx.fillRect(3, 4, 6, 4);
-    ctx.fillRect(8, 3, 3, 3);
-    ctx.fillRect(9, 1, 1, 2);
+    ctx.fillRect(5, 5, 6, 7);
     ctx.fillStyle = "#efe9dd";
-    ctx.fillRect(3, 7, 5, 2);
+    ctx.fillRect(6, 7, 4, 3);
     ctx.fillStyle = "#3a3428";
-    ctx.fillRect(10, 4, 1, 1);
+    ctx.fillRect(6, 6, 1, 1); ctx.fillRect(9, 6, 1, 1);
+    ctx.fillStyle = "#c9c2b4"; // 耳
+    ctx.fillRect(5, 1, 2, 5); ctx.fillRect(9, 1, 2, 5);
+    ctx.fillStyle = "#efe9dd";
+    ctx.fillRect(5, 1, 1, 4); ctx.fillRect(10, 1, 1, 4);
+    ctx.fillStyle = "#b0a898"; // 腿
+    ctx.fillRect(6, 12, 2, 3); ctx.fillRect(8, 12, 2, 3);
+  } else { // 家畜羊(程序化备用)
+    ctx.fillStyle = "#e8e4dc"; // 羊毛团
+    ctx.fillRect(3, 4, 10, 9);
+    ctx.fillRect(4, 2, 4, 8);
+    ctx.fillStyle = "#cfc9bd";
+    ctx.fillRect(3, 12, 10, 2);
+    ctx.fillStyle = "#8a7a6a"; // 头
+    ctx.fillRect(10, 6, 5, 5);
+    ctx.fillStyle = "#3a3428";
+    ctx.fillRect(12, 7, 1, 1);
+    ctx.fillStyle = "#6b5a4c";
+    ctx.fillRect(11, 11, 3, 2);
+    ctx.fillStyle = "#6b5a4a"; // 腿
+    ctx.fillRect(4, 13, 2, 3); ctx.fillRect(7, 13, 2, 3); ctx.fillRect(10, 13, 2, 3);
   }
+  void seed;
   return c;
+}
+
+const LIVESTOCK_SHEETS = {
+  chicken: ["Chicken_SpriteSheetWhite.png", "Chicken_SpriteSheetBrown.png", "Chicken_SpriteSheetCute.png", "Chicken_SpriteSheetBlack.png"],
+  pig: ["Pig_SpriteSheetPink.png", "Pig_SpriteSheetBlack.png", "Pig_SpriteSheetRed.png"],
+  cow: ["Cow_SpriteSheetWhite.png", "Cow_SpriteSheetWhiteSide.png"]
+};
+const livestockTexCache = new Map();
+
+// 家畜贴图：pack 素材取首帧底部对齐；羊/缺失时程序化
+function makeLivestockTexture(kind, seed) {
+  const cacheKey = kind + ":" + seed;
+  if (livestockTexCache.has(cacheKey)) return livestockTexCache.get(cacheKey);
+
+  let tex = null;
+  if (kind !== "sheep") {
+    const variants = LIVESTOCK_SHEETS[kind];
+    if (variants) {
+      const file = variants[seed % variants.length];
+      const sheet = AnimalSheets[file];
+      if (sheet) {
+        const c = mkCanvas(16, 16);
+        const ctx = c.getContext("2d");
+        const probe = mkCanvas(16, 16);
+        const pctx = probe.getContext("2d");
+        pctx.drawImage(sheet, 0, 0, 16, 16, 0, 0, 16, 16);
+        const pd = pctx.getImageData(0, 0, 16, 16).data;
+        let bottom = -1;
+        for (let y = 15; y >= 0 && bottom < 0; y--)
+          for (let x = 0; x < 16; x++)
+            if (pd[(y * 16 + x) * 4 + 3] > 40) { bottom = y; break; }
+        ctx.drawImage(sheet, 0, 0, 16, 16, 0, 15 - Math.max(0, bottom), 16, 16);
+        tex = c;
+      }
+    }
+  }
+  if (!tex) tex = makeAnimalTexture("sheep"); // 素材缺失时回退程序化
+  livestockTexCache.set(cacheKey, tex);
+  return tex;
 }
 
 const BuildingStyle = {
