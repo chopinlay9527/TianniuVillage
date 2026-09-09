@@ -19,15 +19,14 @@ const TEX = {
   // 写法 B: { tiles: ["t0","t1"], tint: "rgba(...)" }  → 素材格(多个则随机混铺) + 可选罩色
   // 任意写法可加 noise: 0.07 → 杂色强度（每格随机撒 6 个明暗 1px 噪点，0=关闭）
   terrain: {
-    // lpc = 内容分析得出的纯基底（纯草无蓝杂/纯水无绿杂），四季换皮自动
-    deepWater:    { lpc: [161, 33, 91, 94, 544], waves: true },   // 深水(纯水)
-    shallowWater: { lpc: [164, 167, 170, 231, 234], waves: true },// 浅水(纯水)
-    sand:         { lpc: [12, 13, 14, 74, 76], noise: 0.04 },     // 沙滩(纯沙)
-    grass:        { lpc: [7, 65, 67, 68, 69, 70, 72], noise: 0.04 },  // 草地(纯草)
-    forest:       { lpc: [7, 65, 67, 68], tint: "rgba(20,60,20,0.24)", noise: 0.04 }, // 森林
-    highland:     { lpc: [16, 17, 18, 19], noise: 0.05 },         // 高地(暖岩)
-    mountain:     { lpc: [446, 881, 1145, 1209, 1212],             // 山(纯岩)
-                    noise: 0.04, cracks: true, crackColor: "rgba(35,35,45,0.5)" },
+    // Wang Set 驱动：贴图由 wang_table.json 拼接规则自动选取，此处仅配置效果参数
+    deepWater:    { waves: false },                        // 深水(冬结冰由表处理)
+    shallowWater: { waves: false },                        // 浅水
+    sand:         { noise: 0.03 },                         // 沙滩
+    grass:        { noise: 0.03 },                         // 草地
+    forest:       { tint: "rgba(20,60,20,0.18)", noise: 0.03 }, // 森林(草+罩)
+    highland:     { noise: 0.04 },                         // 高地(Dirt色,山前过渡)
+    mountain:     { noise: 0.03 },                         // 山
   },
 
   // ---------- 资源物件 ----------

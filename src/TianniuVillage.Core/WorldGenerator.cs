@@ -21,12 +21,15 @@ public static class WorldGenerator
 
                 float m = Noise.Fbm(nx * 1.7f + 100, ny * 1.7f - 40, seed + 777, 4);
                 Terrain t;
+                // 海拔分层: 深海→浅水→沙→草→高地(Dirt)→山
+                // 高地(Dirt)在草和山之间产生自然过渡带(Wang 拼接)
                 if (h < 0.24f) t = Terrain.DeepWater;
                 else if (h < 0.34f) t = Terrain.Water;
                 else if (h < 0.38f) t = Terrain.Sand;
-                else if (h > 0.54f && mr > 0.85f) t = Terrain.Mountain; // 脊线+海拔 → 山脉
-                else if (h > 0.51f && mr > 0.72f) t = Terrain.Highland; // 脊线外围高地
-                else if (h > 0.76f) t = Terrain.Highland;               // 块状高地
+                else if (h > 0.54f && mr > 0.85f) t = Terrain.Mountain; // 脊线 → 山
+                else if (h > 0.51f && mr > 0.72f) t = Terrain.Highland; // 脊线外围 → 高地(Dirt)
+                else if (h > 0.76f) t = Terrain.Mountain;                // 极高 → 山
+                else if (h > 0.70f) t = Terrain.Highland;                // 高海拔 → 高地
                 else if (m > 0.62f) t = Terrain.Forest;
                 else t = Terrain.Grass;
                 map.Tiles[map.Index(x, y)] = t;

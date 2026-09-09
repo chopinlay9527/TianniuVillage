@@ -36,29 +36,19 @@ const TerrainColors = {
   6: ["#6b6e60", "#5f6255", "#74776a"]   // 山
 };
 
-// ===== LPC Revised 地形（OGA-BY 3.0，32px，四季同布局）=====
-// 基底/边缘 id 由素材内容分析生成（纯色判定 + 水岸四边朝向掩码），非猜测：
-// 纯草地=绿主导且蓝像素<2%等。掩码: N=8 S=4 W=2 E=1
-const LPC_TERRAIN_BASE = {
-  0: [161, 33, 91, 94, 544],   // 深水（纯水：无绿杂色）
-  1: [164, 167, 170, 231, 234],// 浅水（纯水）
-  2: [12, 13, 14, 74, 76],     // 沙滩（纯沙）
-  3: [7, 65, 67, 68, 69, 70, 72],  // 草地（纯草）
-  4: [7, 65, 67, 68],          // 森林（纯草+罩）
-  5: [16, 17, 18, 19],         // 高地(暖岩)
-  6: [446, 881, 1145, 1209, 1212] // 山（纯岩）
-};
-// 水岸件（浅水族）：掩码→id，含陆地色饰边，用于与陆地拼缝
-const LPC_WATER_EDGE = {
-  1: 3980, 2: 4044, 3: 4083, 4: 4018, 5: 3950, 6: 3860, 7: 4029,
-  8: 4053, 9: 4062, 10: 4058, 11: 4093, 12: 4016, 13: 3603, 14: 4095, 15: 4094
-};
+// ===== Wang Set 驱动的 LPC 地形系统（OGA-BY 3.0，32px，四季同布局）=====
+// wang_table.json 由 tsx wangset 解析生成——拼接规则由素材作者定义，非猜测
+// 位置含义: 角位 [TR, BR, BL, TL]，边位恒 0
+// 色号: 0=Grass 1=Sand 2=Dirt 5=ShallowWater 6=DeepWater 9=Mountain 10=GrassyMtn
+
 const SEASON_SHEET = ["spring", "summer", "autumn", "winter"];
-let currentSeason = 0;           // 0春 1夏 2秋 3冬
+let currentSeason = 0;
 function setSeason(idx) { currentSeason = idx; }
 function lpcSeasonName() { return SEASON_SHEET[currentSeason]; }
 // 地形枚举 → TEX.terrain 键
 const TERRAIN_KEY = { 0: "deepWater", 1: "shallowWater", 2: "sand", 3: "grass", 4: "forest", 5: "highland", 6: "mountain" };
+// 地形枚举 → Wang 色号
+const TERRAIN_WANG_COLOR = { 0: 6, 1: 5, 2: 1, 3: 0, 4: 0, 5: 2, 6: 9 };
 
 const lpcCellCache = new Map();
 function lpcCell(id) {
@@ -72,70 +62,53 @@ function lpcCell(id) {
   lpcCellCache.set(id, out);
   return out;
 }
-// 换季：清空 LPC 格缓存并按新季重建（id 平行、冬水结冰）
 function swapSeason(idx) {
   if (idx === currentSeason) return;
   currentSeason = idx;
   lpcCellCache.clear();
 }
 
-// 地形杂色(32px 规格)
-function terrainNoise(ctx, entry, tx, ty, px, py) {
-  const a = entry.noise;
-  for (let i = 0; i < 14; i++) {
-    const rx = Math.floor(hash01(tx, ty, 900 + i * 2) * (TILE - 4));
-    const ry = Math.floor(hash01(ty, tx, 951 + i * 2) * (TILE - 4));
-    ctx.fillStyle = i % 2 ? "rgba(255,255,255," + a + ")" : "rgba(0,0,0," + (a * 0.9).toFixed(3) + ")";
-    ctx.fillRect(px + rx, py + ry, 2, 2);
+// Wang 角位计算: 自身色 + 8 邻居色 → "TR,BR,BL,TL" 查 wang 表选贴图
+let WANG_TABLE = null; // { cornerTable, baseTile }
+function wangLookup(tx, ty, tiles, mapW, mapH) {
+  if (!WANG_TABLE) return -1;
+  const idx = ty * mapW + tx;
+  const own = TERRAIN_WANG_COLOR[tiles[idx]] ?? 0;
+  function at(x, y) {
+    if (x < 0 || y < 0 || x >= mapW || y >= mapH) return own;
+    return TERRAIN_WANG_COLOR[tiles[y * mapW + x]] ?? 0;
   }
-}
-
-// 水波纹(32px 规格)：哈希散布横向短线+闪光，避免重复网格感
-function waterWaves(ctx, tx, ty, px, py) {
-  const y1 = 4 + Math.floor(hash01(tx, ty, 700) * 22);
-  const y2 = 14 + Math.floor(hash01(ty, tx, 701) * 22);
-  ctx.fillStyle = "rgba(230,245,252,0.35)";
-  ctx.fillRect(px + Math.floor(hash01(tx, ty, 702) * 20), py + y1, 8, 2);
-  ctx.fillRect(px + Math.floor(hash01(ty, tx, 703) * 22), py + y2, 6, 2);
-  if (hash01(tx, ty, 704) > 0.55) {
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.fillRect(px + Math.floor(hash01(tx, ty, 705) * 28), py + Math.floor(hash01(ty, tx, 706) * 28), 2, 2);
-  }
+  const N = at(tx, ty - 1), NE = at(tx + 1, ty - 1), E = at(tx + 1, ty);
+  const SE = at(tx + 1, ty + 1), S = at(tx, ty + 1), SW = at(tx - 1, ty + 1), W = at(tx - 1, ty), NW = at(tx - 1, ty - 1);
+  // 角位 = 对角优先，其次正交；任一异于自身 → 用该色
+  const TR = NE !== own ? NE : (N !== own ? N : (E !== own ? E : own));
+  const BR = SE !== own ? SE : (S !== own ? S : (E !== own ? E : own));
+  const BL = SW !== own ? SW : (S !== own ? S : (W !== own ? W : own));
+  const TL = NW !== own ? NW : (N !== own ? N : (W !== own ? W : own));
+  const key = [TR, BR, BL, TL].join(",");
+  const ids = WANG_TABLE.cornerTable[key];
+  if (ids && ids.length > 0) return ids[(tx * 31 + ty * 57) % ids.length];
+  // 兜底: 地形基底 tile
+  const tName = TERRAIN_KEY[tiles[idx]];
+  const base = WANG_TABLE.baseTile;
+  const bKey = { deepWater: "Deep Water", shallowWater: "Shallow Water", sand: "Sand",
+    grass: "Grass", forest: "Grass", highland: "Dirt", mountain: "Mountain" }[tName];
+  return (base[bKey] ?? base["Grass"]) ?? 735;
 }
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py, tiles, mapW, mapH) {
   const entry = TEX.terrain[TERRAIN_KEY[terrain]];
   if (entry) {
     let drawn = false;
-    if (entry.lpc && LpcSheets[lpcSeasonName()]) {
-      const ids = entry.lpc;
-      const id = ids[(tx * 31 + ty * 57) % ids.length];
-      ctx.drawImage(lpcCell(id), px, py);
-      if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, TILE, TILE); }
-      if (entry.cracks) {
-        const h1 = hash01(tx, ty, 500);
-        ctx.fillStyle = entry.crackColor || "rgba(35,35,45,0.55)";
-        ctx.fillRect(px + 6 + Math.floor(h1 * 12), py + 4, 2, 10);
-        ctx.fillRect(px + 8 + Math.floor(h1 * 12), py + 14, 2, 8);
-        ctx.fillRect(px + 20 - Math.floor(h1 * 8), py + 18, 2, 8);
+    if (LpcSheets[lpcSeasonName()]) {
+      const tileId = wangLookup(tx, ty, tiles, mapW, mapH);
+      if (tileId >= 0) {
+        ctx.drawImage(lpcCell(tileId), px, py);
+        if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, TILE, TILE); }
+        drawn = true;
       }
-      // 水岸拼缝：水格与陆地相邻边，叠对应朝向的水岸件（含陆地饰边）
-      if ((terrain === 0 || terrain === 1) && tiles && mapW && mapH && LpcSheets[lpcSeasonName()]) {
-        const isLand = (x, y) => {
-          if (x < 0 || y < 0 || x >= mapW || y >= mapH) return true;
-          const t = tiles[y * mapW + x];
-          return t !== 0 && t !== 1;
-        };
-        let mask = 0;
-        if (isLand(tx, ty - 1)) mask |= 8;
-        if (isLand(tx, ty + 1)) mask |= 4;
-        if (isLand(tx - 1, ty)) mask |= 2;
-        if (isLand(tx + 1, ty)) mask |= 1;
-        const eid = LPC_WATER_EDGE[mask];
-        if (eid) ctx.drawImage(lpcCell(eid), px, py);
-      }
-      drawn = true;
-    } else if (entry.color) {
+    }
+    if (!drawn && entry.color) {
       ctx.fillStyle = entry.color;
       ctx.fillRect(px, py, TILE, TILE);
       drawn = true;
@@ -155,13 +128,29 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py, tiles, mapW, mapH) {
       ctx.fillRect(px + x, py + y, 1, 1);
     }
   }
-  if (terrain === 1) {
-    for (let i = 0; i < 3; i++) {
-      const rx = Math.floor(hash01(tx, ty, 100 + i) * (TILE - 4));
-      const ry = Math.floor(hash01(ty, tx, 200 + i) * (TILE - 2));
-      ctx.fillStyle = "rgba(210,235,240,0.28)";
-      ctx.fillRect(px + rx, py + ry + (ty + tx) % 3, 3, 1);
-    }
+}
+
+// 地形杂色(32px)
+function terrainNoise(ctx, entry, tx, ty, px, py) {
+  const a = entry.noise;
+  for (let i = 0; i < 14; i++) {
+    const rx = Math.floor(hash01(tx, ty, 900 + i * 2) * (TILE - 4));
+    const ry = Math.floor(hash01(ty, tx, 951 + i * 2) * (TILE - 4));
+    ctx.fillStyle = i % 2 ? "rgba(255,255,255," + a + ")" : "rgba(0,0,0," + (a * 0.9).toFixed(3) + ")";
+    ctx.fillRect(px + rx, py + ry, 2, 2);
+  }
+}
+
+// 水波纹(32px)
+function waterWaves(ctx, tx, ty, px, py) {
+  const y1 = 4 + Math.floor(hash01(tx, ty, 700) * 22);
+  const y2 = 14 + Math.floor(hash01(ty, tx, 701) * 22);
+  ctx.fillStyle = "rgba(230,245,252,0.35)";
+  ctx.fillRect(px + Math.floor(hash01(tx, ty, 702) * 20), py + y1, 8, 2);
+  ctx.fillRect(px + Math.floor(hash01(ty, tx, 703) * 22), py + y2, 6, 2);
+  if (hash01(tx, ty, 704) > 0.55) {
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillRect(px + Math.floor(hash01(tx, ty, 705) * 28), py + Math.floor(hash01(ty, tx, 706) * 28), 2, 2);
   }
 }
 
