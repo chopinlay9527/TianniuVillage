@@ -47,14 +47,27 @@ function atlasCell(id) {
 // 地形枚举 → TEX.terrain 键
 const TERRAIN_KEY = { 0: "deepWater", 1: "shallowWater", 2: "sand", 3: "grass", 4: "forest", 5: "highland", 6: "mountain" };
 
-// 地形杂色：基于坐标哈希的明暗 1px 噪点（每格散布，无重复网格感）
+// 地形杂色：基于坐标哈希的明暗 1px 噪点（每格 14 个散布，无重复网格感）
 function terrainNoise(ctx, entry, tx, ty, px, py) {
   const a = entry.noise;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 14; i++) {
     const rx = Math.floor(hash01(tx, ty, 900 + i * 2) * 16);
     const ry = Math.floor(hash01(ty, tx, 951 + i * 2) * 16);
     ctx.fillStyle = i % 2 ? "rgba(255,255,255," + a + ")" : "rgba(0,0,0," + (a * 0.9).toFixed(3) + ")";
     ctx.fillRect(px + rx, py + ry, 1, 1);
+  }
+}
+
+// 水波纹：哈希散布的横向短线 + 偶发闪光点
+function waterWaves(ctx, tx, ty, px, py) {
+  const y1 = 2 + Math.floor(hash01(tx, ty, 700) * 12);
+  const y2 = 8 + Math.floor(hash01(ty, tx, 701) * 12);
+  ctx.fillStyle = "rgba(230,245,252,0.35)";
+  ctx.fillRect(px + Math.floor(hash01(tx, ty, 702) * 9), py + y1, 4, 1);
+  ctx.fillRect(px + Math.floor(hash01(ty, tx, 703) * 10), py + y2, 3, 1);
+  if (hash01(tx, ty, 704) > 0.55) {
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillRect(px + Math.floor(hash01(tx, ty, 705) * 14), py + Math.floor(hash01(ty, tx, 706) * 14), 1, 1);
   }
 }
 
@@ -81,6 +94,7 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
     }
     if (drawn) {
       if (entry.noise) terrainNoise(ctx, entry, tx, ty, px, py);
+      if (entry.waves) waterWaves(ctx, tx, ty, px, py);
       return;
     }
   }
