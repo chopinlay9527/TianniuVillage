@@ -1,0 +1,15 @@
+bin/
+obj/
+*.user
+.vs/
+*.log
+
+# Build outputs
+publish/
+res/
+*.user
+*.suo
+.vs/
+bin/
+obj/
+*.log
