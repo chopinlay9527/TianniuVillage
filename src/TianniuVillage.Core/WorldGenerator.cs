@@ -6,6 +6,7 @@ public static class WorldGenerator
     {
         var world = new World { Seed = seed };
         var map = world.Map;
+        var hmap = new float[map.W * map.H];
         for (int y = 0; y < map.H; y++)
         {
             for (int x = 0; x < map.W; x++)
@@ -13,26 +14,100 @@ public static class WorldGenerator
                 float nx = x / 22f, ny = y / 22f;
                 float edge = EdgeFalloff(x, y, map.W, map.H);
                 float h = Noise.Fbm(nx, ny, seed, 5) * edge;
-                float m = Noise.Fbm(nx * 1.7f + 100, ny * 1.7f - 40, seed + 777, 4);
+                // 山脊噪声：沿噪声等值线形成 1，配合海拔产生连绵山脉链而非孤立斑点
+                float ridge = 1f - MathF.Abs(2f * Noise.Fbm(nx * 0.8f + 40, ny * 0.8f + 90, seed + 3312, 3) - 1f);
+                float mr = ridge * edge;
+                hmap[map.Index(x, y)] = h;
 
+                float m = Noise.Fbm(nx * 1.7f + 100, ny * 1.7f - 40, seed + 777, 4);
                 Terrain t;
                 if (h < 0.24f) t = Terrain.DeepWater;
                 else if (h < 0.34f) t = Terrain.Water;
                 else if (h < 0.38f) t = Terrain.Sand;
-                else if (h > 0.80f) t = Terrain.Mountain;
-                else if (h > 0.70f) t = Terrain.Highland;
+                else if (h > 0.54f && mr > 0.85f) t = Terrain.Mountain; // 脊线+海拔 → 山脉
+                else if (h > 0.51f && mr > 0.72f) t = Terrain.Highland; // 脊线外围高地
+                else if (h > 0.76f) t = Terrain.Highland;               // 块状高地
                 else if (m > 0.62f) t = Terrain.Forest;
                 else t = Terrain.Grass;
                 map.Tiles[map.Index(x, y)] = t;
             }
         }
 
+        CarveRivers(world, seed, hmap);
         SpawnResources(world, seed);
         SpawnAnimals(world, seed);
         world.SettleCenter = FindSettleSite(world, seed);
         EnsureWaterNearSettle(world);
         world.RebuildBlocked();
         return world;
+    }
+
+    // 河流：从山地/高地源头沿最陡下降走到海洋/湖泊，雕刻水道
+    private static void CarveRivers(World world, int seed, float[] hmap)
+    {
+        var map = world.Map;
+        var rng = new Rng(seed ^ 0x1215);
+
+        var sources = new List<int>();
+        var fallback = new List<int>();
+        for (int i = 0; i < map.Tiles.Length; i++)
+        {
+            if (map.Tiles[i] == Terrain.Mountain) sources.Add(i);
+            else if (map.Tiles[i] == Terrain.Highland) fallback.Add(i);
+        }
+        if (sources.Count < 3) sources.AddRange(fallback);
+        if (sources.Count == 0) return;
+
+        int made = 0, tries = 0;
+        while (made < 3 && tries < 50 && sources.Count > 0)
+        {
+            tries++;
+            int si = sources[rng.Next(sources.Count)];
+            int sx = si % map.W, sy = si / map.W;
+            if (CarveOneRiver(world, hmap, rng, sx, sy)) made++;
+            sources.Remove(si);
+        }
+    }
+
+    private static bool CarveOneRiver(World world, float[] hmap, Rng rng, int sx, int sy)
+    {
+        var map = world.Map;
+        int cx = sx, cy = sy, steps = 0;
+        var visited = new HashSet<int> { map.Index(cx, cy) };
+        while (steps < 500)
+        {
+            int ci = map.Index(cx, cy);
+            if (map.Tiles[ci] is Terrain.Water or Terrain.DeepWater && steps > 0) return true;
+
+            map.Tiles[ci] = Terrain.Water;
+            // 弯道处偶尔加宽一格
+            if (steps % 9 == 4)
+            {
+                int wx = cx + (rng.Chance(0.5f) ? 1 : -1);
+                if (map.InBounds(wx, cy) && map.Tiles[map.Index(wx, cy)] is Terrain.Grass or Terrain.Forest or Terrain.Sand or Terrain.Highland)
+                    map.Tiles[map.Index(wx, cy)] = Terrain.Water;
+            }
+
+            // 选海拔最低的未访问邻居；遇洼地随机破脊继续
+            int bx = -1, by = -1;
+            float bh = float.MaxValue;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    int nx = cx + dx, ny = cy + dy;
+                    if (!map.InBounds(nx, ny)) continue;
+                    int ni = map.Index(nx, ny);
+                    if (visited.Contains(ni)) continue;
+                    float nh = hmap[ni] + (float)rng.NextDouble() * 0.02f;
+                    if (nh < bh) { bh = nh; bx = nx; by = ny; }
+                }
+            if (bx < 0) return false; // 全邻已访问
+            cx = bx; cy = by;
+            visited.Add(map.Index(cx, cy));
+            steps++;
+        }
+        return false;
     }
 
     private static float EdgeFalloff(int x, int y, int w, int h)

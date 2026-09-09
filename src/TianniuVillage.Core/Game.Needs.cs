@@ -41,6 +41,17 @@ public sealed partial class Game
 
         if (v.Ill)
         {
+            // 病中照料：乡亲送水送食（消耗村庄储备），避免病患起身困难而渴死饿死
+            if (v.Thirst < 30f && World.TryTakeItem("water", 1))
+                v.Thirst = Math.Min(100f, v.Thirst + 40f);
+            if (v.Satiety < 25f)
+                foreach (var food in FoodPreference)
+                    if (World.TryTakeItem(food, 1))
+                    {
+                        v.Satiety = Math.Min(100f, v.Satiety + ItemDefs.All[food].FoodValue);
+                        break;
+                    }
+
             float diseaseDrain = v.Disease != DiseaseType.None
                 ? DiseaseInfo.Data[(int)v.Disease].healthDrain
                 : Balance.HealthDecayIllnessPerHour;

@@ -55,6 +55,27 @@ if (args.Length > 0 && args[0] == "window")
     return;
 }
 
+if (args.Length > 0 && args[0] == "terrain")
+{
+    int tSeed = args.Length > 1 && int.TryParse(args[1], out var ts) ? ts : 20260908;
+    var w = WorldGenerator.Generate(tSeed);
+    var counts = new Dictionary<Terrain, int>();
+    foreach (var t in w.Map.Tiles) counts[t] = counts.GetValueOrDefault(t) + 1;
+    Console.WriteLine($"seed={tSeed} settle=({w.SettleCenter.x},{w.SettleCenter.y})");
+    foreach (var (t, n) in counts.OrderByDescending(k => k.Value))
+        Console.WriteLine($"  {t,-10} {n,6} ({n * 100.0 / w.Map.Tiles.Length:F1}%)");
+    // ASCII 缩略图 (每8x8取中心) 验证山脉/河流形态
+    char[] glyphs = { '~', '=', '.', '"', ',', 'T', '^', 'M' }; // 深水浅水沙草林高地山
+    for (int my = 4; my < w.Map.H; my += 8)
+    {
+        var line = new System.Text.StringBuilder();
+        for (int mx = 4; mx < w.Map.W; mx += 8)
+            line.Append(glyphs[(int)w.Map.Get(mx, my)]);
+        Console.WriteLine(line);
+    }
+    return;
+}
+
 if (args.Length > 0 && args[0] == "deaths")
 {
     int dSeed = args.Length > 1 && int.TryParse(args[1], out var ds) ? ds : 20260908;
@@ -312,3 +333,4 @@ static void RunEvents()
         }
     }
 }
+
