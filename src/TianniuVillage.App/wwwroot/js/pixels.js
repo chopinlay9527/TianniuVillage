@@ -27,54 +27,47 @@ const TerrainColors = {
   6: ["#6b6e60", "#5f6255", "#74776a"]   // 山
 };
 
-// ===== Tiny 环境系统（Kenney Tiny Town / Tiny Farm, CC0）=====
-// 整合图 12x11 格，无间距，索引 = 行主序
-const TINY_COLS = 12;
-const tinyCellCache = new Map();
-function tinyCell(pack, idx) {
-  const key = pack + ":" + idx;
-  if (tinyCellCache.has(key)) return tinyCellCache.get(key);
+// ===== 贴图系统：全部由 textures.js 的 TEX 配置驱动 =====
+// 素材图 assets/atlas.png（12 列 × 22 行）：上半 t0~t131(Town)，下半 f0~f131(Farm)
+const ATLAS_COLS = 12, ATLAS_FARM_ROW = 11;
+const atlasCellCache = new Map();
+function atlasCell(id) {
+  if (atlasCellCache.has(id)) return atlasCellCache.get(id);
   const out = mkCanvas(16, 16);
-  const sheet = TinySheets[pack];
-  if (sheet) {
-    const ctx = out.getContext("2d");
-    ctx.drawImage(sheet, (idx % TINY_COLS) * 16, Math.floor(idx / TINY_COLS) * 16, 16, 16, 0, 0, 16, 16);
+  const m = /^([tf])(\d+)$/.exec(String(id));
+  if (m && Atlas.img) {
+    const n = parseInt(m[2], 10);
+    const row = (m[1] === "t" ? 0 : ATLAS_FARM_ROW) + Math.floor(n / ATLAS_COLS);
+    const col = n % ATLAS_COLS;
+    out.getContext("2d").drawImage(Atlas.img, col * 16, row * 16, 16, 16, 0, 0, 16, 16);
   }
-  tinyCellCache.set(key, out);
+  atlasCellCache.set(id, out);
   return out;
 }
-// 地形: 全部选用纯色平格（t0 草 / t25 土，零杂点），风格极简统一
-// 水体为纯色填充（基色取自 Tiny 水系实测 t77 底色），消除逐格重复的波纹花纹
-const TINY_FLAT_WATER = { 1: "#91a0b8", 0: "#60708d" }; // 浅水 / 深水
-const TINY_TERRAIN = {
-  2: { pack: "town", base: [25], tint: null },                         // 沙滩
-  3: { pack: "town", base: [0], tint: null },                          // 草地
-  4: { pack: "town", base: [0], tint: "rgba(20,60,20,0.32)" },         // 森林
-  5: { pack: "town", base: [25], tint: "rgba(115,115,100,0.30)" },     // 高地
-  6: { pack: "town", base: [25], tint: "rgba(100,100,115,0.48)" }      // 山
-};
+// 地形枚举 → TEX.terrain 键
+const TERRAIN_KEY = { 0: "deepWater", 1: "shallowWater", 2: "sand", 3: "grass", 4: "forest", 5: "highland", 6: "mountain" };
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
-  const water = TINY_FLAT_WATER[terrain];
-  if (water) {
-    ctx.fillStyle = water;
-    ctx.fillRect(px, py, 16, 16);
-    return;
-  }
-  const def = TINY_TERRAIN[terrain];
-  if (def && TinySheets[def.pack]) {
-    const idx = def.base[(tx * 31 + ty * 57) % def.base.length];
-    ctx.drawImage(tinyCell(def.pack, idx), px, py);
-    if (def.tint) { ctx.fillStyle = def.tint; ctx.fillRect(px, py, 16, 16); }
-    if (terrain === 6) {
-      // 山体裂纹
-      const h1 = hash01(tx, ty, 500);
-      ctx.fillStyle = "rgba(35,35,45,0.55)";
-      ctx.fillRect(px + 3 + Math.floor(h1 * 6), py + 2, 1, 5);
-      ctx.fillRect(px + 4 + Math.floor(h1 * 6), py + 7, 1, 4);
-      ctx.fillRect(px + 10 - Math.floor(h1 * 4), py + 9, 1, 4);
+  const entry = TEX.terrain[TERRAIN_KEY[terrain]];
+  if (entry) {
+    if (entry.color) {
+      ctx.fillStyle = entry.color;
+      ctx.fillRect(px, py, 16, 16);
+      return;
     }
-    return;
+    if (entry.tiles && Atlas.img) {
+      const id = entry.tiles[(tx * 31 + ty * 57) % entry.tiles.length];
+      ctx.drawImage(atlasCell(id), px, py);
+      if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, 16, 16); }
+      if (entry.cracks) {
+        const h1 = hash01(tx, ty, 500);
+        ctx.fillStyle = entry.crackColor || "rgba(35,35,45,0.55)";
+        ctx.fillRect(px + 3 + Math.floor(h1 * 6), py + 2, 1, 5);
+        ctx.fillRect(px + 4 + Math.floor(h1 * 6), py + 7, 1, 4);
+        ctx.fillRect(px + 10 - Math.floor(h1 * 4), py + 9, 1, 4);
+      }
+      return;
+    }
   }
   const pal = TerrainColors[terrain] || TerrainColors[3];
   for (let y = 0; y < TILE; y++) {
@@ -94,15 +87,12 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
   }
 }
 
-// Tiny 树: town t3/t4/t5 三种圆冠规格 + farm f39
-const TINY_TREES = [["town", 3], ["town", 4], ["town", 5], ["farm", 39]];
-
 function drawTree(ctx, px, py, seed) {
-  if (TinySheets.town && TinySheets.farm) {
-    ctx.fillStyle = "rgba(30,60,25,0.25)";
+  if (Atlas.img && TEX.tree && TEX.tree.tiles.length) {
+    ctx.fillStyle = TEX.tree.shadow;
     ctx.fillRect(px + 2, py + 13, 12, 2);
-    const [pk, idx] = TINY_TREES[seed % TINY_TREES.length];
-    ctx.drawImage(tinyCell(pk, idx), px, py);
+    const id = TEX.tree.tiles[seed % TEX.tree.tiles.length];
+    ctx.drawImage(atlasCell(id), px, py);
     return;
   }
   const trunkX = px + 7;
@@ -121,12 +111,12 @@ function drawTree(ctx, px, py, seed) {
 }
 
 function drawBush(ctx, px, py, hasBerries) {
-  if (TinySheets.town && TinySheets.farm) {
-    ctx.fillStyle = "rgba(30,60,25,0.22)";
+  if (Atlas.img && TEX.bush) {
+    ctx.fillStyle = TEX.bush.shadow;
     ctx.fillRect(px + 3, py + 13, 10, 2);
-    ctx.drawImage(tinyCell(hasBerries ? "farm" : "town", hasBerries ? 27 : 7), px, py);
+    ctx.drawImage(atlasCell(hasBerries ? TEX.bush.withBerries : TEX.bush.empty), px, py);
     if (hasBerries) {
-      ctx.fillStyle = "#d0455a";
+      ctx.fillStyle = TEX.bush.berryColor;
       ctx.fillRect(px + 6, py + 8, 2, 2);
       ctx.fillRect(px + 9, py + 10, 2, 2);
     }
@@ -145,31 +135,33 @@ function drawBush(ctx, px, py, hasBerries) {
 }
 
 function drawMushroom(ctx, px, py) {
-  ctx.fillStyle = "#e8ddc8";
+  const c = TEX.mushroom || {};
+  ctx.fillStyle = c.stem || "#e8ddc8";
   ctx.fillRect(px + 6, py + 11, 3, 3);
-  ctx.fillStyle = "#b8503c";
+  ctx.fillStyle = c.cap || "#b8503c";
   ctx.fillRect(px + 4, py + 8, 7, 3);
-  ctx.fillStyle = "#e8ddc8";
+  ctx.fillStyle = c.dot || "#e8ddc8";
   ctx.fillRect(px + 6, py + 8, 1, 1);
   ctx.fillRect(px + 9, py + 9, 1, 1);
 }
 
 function drawStone(ctx, px, py, seed) {
-  ctx.fillStyle = "#8a8d80";
+  const c = TEX.stone || {};
+  ctx.fillStyle = c.base || "#8a8d80";
   ctx.fillRect(px + 3, py + 6, 10, 8);
-  ctx.fillStyle = "#9da093";
+  ctx.fillStyle = c.light || "#9da093";
   ctx.fillRect(px + 4, py + 5, 7, 4);
-  ctx.fillStyle = "#767970";
+  ctx.fillStyle = c.dark || "#767970";
   ctx.fillRect(px + 3, py + 12, 10, 2);
   if (hash01(px, py, seed) > 0.5) {
-    ctx.fillStyle = "#8a8d80";
+    ctx.fillStyle = c.base || "#8a8d80";
     ctx.fillRect(px + 11, py + 9, 4, 5);
   }
 }
 
 function drawHerb(ctx, px, py) {
-  if (TinySheets.farm) {
-    ctx.drawImage(tinyCell("farm", 15), px, py);
+  if (Atlas.img && TEX.herb) {
+    ctx.drawImage(atlasCell(TEX.herb.tile), px, py);
     return;
   }
   ctx.fillStyle = "#5aa06a";
@@ -184,9 +176,10 @@ function drawHerb(ctx, px, py) {
 }
 
 function drawFishSpot(ctx, px, py) {
-  ctx.fillStyle = "rgba(40,70,60,0.5)";
+  const c = TEX.fishSpot || {};
+  ctx.fillStyle = c.shadow || "rgba(40,70,60,0.5)";
   ctx.fillRect(px + 3, py + 6, 10, 6);
-  ctx.fillStyle = "#5a8a7a";
+  ctx.fillStyle = c.fish || "#5a8a7a";
   ctx.fillRect(px + 6, py + 8, 4, 2);
   ctx.fillRect(px + 5, py + 8, 1, 2);
   ctx.fillRect(px + 10, py + 8, 1, 2);
@@ -214,9 +207,10 @@ function drawRoad(ctx, level, px, py, wx, wy, roadLevels, mapW, mapH) {
   const y1 = hasS ? 16 : 14;
   const bw = x1 - x0, bh = y1 - y0;
 
-  const base = level === 1 ? "#c9b088" : level === 2 ? "#a89878" : "#b4b0a4";
-  const edge = level === 1 ? "#b9a078" : level === 2 ? "#8a7a5c" : "#8f8b80";
-  const topBand = level === 3 ? "#c8c4b8" : edge;
+  const rc = (TEX.road || {})[level] || {};
+  const base = rc.base || "#c9b088";
+  const edge = rc.edge || "#b9a078";
+  const topBand = rc.top || edge;
 
   ctx.fillStyle = base;
   ctx.fillRect(px + x0, py + y0, bw, bh);
@@ -241,25 +235,27 @@ function drawRoad(ctx, level, px, py, wx, wy, roadLevels, mapW, mapH) {
     for (let i = 0; i < 6; i++) ctx.fillRect(px, py + 15 - i, 6 - i, 1);
 
   // 等级材质细节
+  const speckle = rc.speckle || "#d8c298";
   if (level === 1) {
     for (let i = 0; i < 3; i++) {
       const rx = Math.floor(hash01(wx, wy, 400 + i) * 12);
       const ry = Math.floor(hash01(wy, wx, 500 + i) * 9);
-      ctx.fillStyle = "#d8c298";
+      ctx.fillStyle = speckle;
       ctx.fillRect(px + 2 + rx, py + 4 + ry, 2, 1);
     }
   } else if (level === 2) {
     for (let i = 0; i < 5; i++) {
       const rx = Math.floor(hash01(wx, wy, 600 + i) * 12);
       const ry = Math.floor(hash01(wy, wx, 700 + i) * 9);
-      ctx.fillStyle = i % 2 ? "#8f8064" : "#bcae8c";
+      const sp = Array.isArray(speckle) ? speckle[i % speckle.length] : speckle;
+      ctx.fillStyle = i % 2 ? (Array.isArray(speckle) ? sp : edge) : sp;
       ctx.fillRect(px + 2 + rx, py + 4 + ry, 2, 2);
     }
   } else if (level === 3) {
-    ctx.fillStyle = "#9d998e";
+    ctx.fillStyle = rc.joint || "#9d998e";
     ctx.fillRect(px + 7, py + y0, 1, bh);
     ctx.fillRect(px + x0, py + 7, bw, 1);
-    ctx.fillStyle = "#a8a49a";
+    ctx.fillStyle = rc.detail || "#a8a49a";
     ctx.fillRect(px + 3, py + 4, 3, 2);
     ctx.fillRect(px + 10, py + 9, 3, 2);
   }
@@ -275,11 +271,11 @@ function drawResource(ctx, r, px, py) {
     case ResKind.Stone: drawStone(ctx, px, py, r.id); break;
     case ResKind.Herb: drawHerb(ctx, px, py); break;
     case ResKind.FlaxPatch:
-      if (TinySheets.farm) {
-        ctx.drawImage(tinyCell("farm", 15), px, py);
-        ctx.fillStyle = "rgba(90,110,210,0.35)";
+      if (Atlas.img && TEX.flax) {
+        ctx.drawImage(atlasCell(TEX.flax.tile), px, py);
+        ctx.fillStyle = TEX.flax.tint;
         ctx.fillRect(px + 3, py + 5, 10, 9);
-        ctx.fillStyle = "rgba(200,215,255,0.8)";
+        ctx.fillStyle = TEX.flax.flowerColor;
         ctx.fillRect(px + 5, py + 4, 2, 2);
         ctx.fillRect(px + 9, py + 3, 2, 2);
         ctx.fillRect(px + 12, py + 6, 2, 2);
@@ -297,31 +293,35 @@ function drawResource(ctx, r, px, py) {
       break;
     case ResKind.FishSpot: drawFishSpot(ctx, px, py); break;
     case ResKind.WaterSpot:
-      ctx.fillStyle = "rgba(190,230,240,0.5)";
+      ctx.fillStyle = (TEX.waterSpot || {}).ripple || "rgba(190,230,240,0.5)";
       ctx.fillRect(px + 4, py + 6, 8, 1);
       ctx.fillRect(px + 6, py + 10, 8, 1);
       ctx.fillRect(px + 3, py + 13, 6, 1);
       break;
-    case ResKind.CopperVein:
-      ctx.fillStyle = "#8a7a5c";
+    case ResKind.CopperVein: {
+      const c = TEX.copperVein || {};
+      ctx.fillStyle = c.rock || "#8a7a5c";
       ctx.fillRect(px + 2, py + 5, 12, 9);
-      ctx.fillStyle = "#c4854a";
+      ctx.fillStyle = c.ore || "#c4854a";
       ctx.fillRect(px + 4, py + 7, 3, 2);
       ctx.fillRect(px + 8, py + 9, 4, 2);
-      ctx.fillStyle = "#e0a050";
+      ctx.fillStyle = c.oreLight || "#e0a050";
       ctx.fillRect(px + 5, py + 8, 1, 1);
       ctx.fillRect(px + 9, py + 10, 1, 1);
       break;
-    case ResKind.IronVein:
-      ctx.fillStyle = "#8a7a5c";
+    }
+    case ResKind.IronVein: {
+      const c = TEX.ironVein || {};
+      ctx.fillStyle = c.rock || "#8a7a5c";
       ctx.fillRect(px + 2, py + 5, 12, 9);
-      ctx.fillStyle = "#8a9aaa";
+      ctx.fillStyle = c.ore || "#8a9aaa";
       ctx.fillRect(px + 4, py + 7, 3, 2);
       ctx.fillRect(px + 8, py + 9, 4, 2);
-      ctx.fillStyle = "#b0c0d0";
+      ctx.fillStyle = c.oreLight || "#b0c0d0";
       ctx.fillRect(px + 5, py + 8, 1, 1);
       ctx.fillRect(px + 9, py + 10, 1, 1);
       break;
+    }
   }
 }
 
