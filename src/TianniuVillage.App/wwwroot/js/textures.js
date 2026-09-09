@@ -17,15 +17,17 @@ const TEX = {
   // ---------- 地形（7 类）----------
   // 写法 A: { color: "#91a0b8" }                      → 纯色填充
   // 写法 B: { tiles: ["t0","t1"], tint: "rgba(...)" }  → 素材格(多个则随机混铺) + 可选罩色
+  // 任意写法可加 noise: 0.07 → 杂色强度（每格随机撒 6 个明暗 1px 噪点，0=关闭）
   terrain: {
     deepWater:    { color: "#3a6fb0" },                              // 深水（蓝）
     shallowWater: { color: "#5aa9dd" },                              // 浅水（蓝）
-    sand:         { tiles: ["t25"] },                                // 沙滩
-    grass:        { tiles: ["t0"] },                                 // 草地
-    forest:       { tiles: ["t0"], tint: "rgba(20,60,20,0.32)" },    // 森林(草地加深绿罩)
-    highland:     { tiles: ["t25"], tint: "rgba(115,115,100,0.30)" },// 高地(土加灰罩)
-    mountain:     { tiles: ["t25"], tint: "rgba(100,100,115,0.48)",  // 山(土加岩灰罩+裂纹)
-                    cracks: true, crackColor: "rgba(35,35,45,0.55)" },
+    // noise = 杂色强度（0~0.2，每格随机撒 6 个明暗 1px 噪点；0 = 关闭）
+    sand:         { tiles: ["t25"], noise: 0.07 },                   // 沙滩
+    grass:        { tiles: ["t0"], noise: 0.07 },                    // 草地
+    forest:       { tiles: ["t0"], tint: "rgba(20,60,20,0.32)", noise: 0.08 },  // 森林
+    highland:     { tiles: ["t25"], tint: "rgba(115,115,100,0.30)", noise: 0.09 }, // 高地
+    mountain:     { tiles: ["t25"], tint: "rgba(100,100,115,0.48)",  // 山
+                    noise: 0.07, cracks: true, crackColor: "rgba(35,35,45,0.55)" },
   },
 
   // ---------- 资源物件 ----------

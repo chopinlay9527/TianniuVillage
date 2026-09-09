@@ -47,15 +47,26 @@ function atlasCell(id) {
 // 地形枚举 → TEX.terrain 键
 const TERRAIN_KEY = { 0: "deepWater", 1: "shallowWater", 2: "sand", 3: "grass", 4: "forest", 5: "highland", 6: "mountain" };
 
+// 地形杂色：基于坐标哈希的明暗 1px 噪点（每格散布，无重复网格感）
+function terrainNoise(ctx, entry, tx, ty, px, py) {
+  const a = entry.noise;
+  for (let i = 0; i < 6; i++) {
+    const rx = Math.floor(hash01(tx, ty, 900 + i * 2) * 16);
+    const ry = Math.floor(hash01(ty, tx, 951 + i * 2) * 16);
+    ctx.fillStyle = i % 2 ? "rgba(255,255,255," + a + ")" : "rgba(0,0,0," + (a * 0.9).toFixed(3) + ")";
+    ctx.fillRect(px + rx, py + ry, 1, 1);
+  }
+}
+
 function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
   const entry = TEX.terrain[TERRAIN_KEY[terrain]];
   if (entry) {
+    let drawn = false;
     if (entry.color) {
       ctx.fillStyle = entry.color;
       ctx.fillRect(px, py, 16, 16);
-      return;
-    }
-    if (entry.tiles && Atlas.img) {
+      drawn = true;
+    } else if (entry.tiles && Atlas.img) {
       const id = entry.tiles[(tx * 31 + ty * 57) % entry.tiles.length];
       ctx.drawImage(atlasCell(id), px, py);
       if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, 16, 16); }
@@ -66,6 +77,10 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
         ctx.fillRect(px + 4 + Math.floor(h1 * 6), py + 7, 1, 4);
         ctx.fillRect(px + 10 - Math.floor(h1 * 4), py + 9, 1, 4);
       }
+      drawn = true;
+    }
+    if (drawn) {
+      if (entry.noise) terrainNoise(ctx, entry, tx, ty, px, py);
       return;
     }
   }
