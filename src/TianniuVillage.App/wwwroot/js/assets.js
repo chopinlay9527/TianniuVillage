@@ -66,12 +66,7 @@ async function loadCharSheets(onProgress) {
       LpcSheets[s] = await loadImage("assets/lpc/lpc-terrain-" + s + ".png");
       tick();
     }
-    // 加载 Wang 拼接表（由 tsx wangset 解析生成）
-    try {
-      const resp = await fetch("assets/lpc/wang_table.json");
-      WANG_TABLE = await resp.json();
-      console.log("Wang 表加载:", Object.keys(WANG_TABLE.cornerTable || {}).length, "角组合");
-    } catch (e) { console.warn("Wang 表加载失败，回退基底渲染", e); }
+    // Wang 表由 wang_data.js script 标签同步加载（window.WANG_DATA），无需 fetch
   })();
   return loadPromise;
 }

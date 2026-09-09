@@ -69,9 +69,14 @@ function swapSeason(idx) {
 }
 
 // Wang 角位计算: 自身色 + 8 邻居色 → "TR,BR,BL,TL" 查 wang 表选贴图
-let WANG_TABLE = null; // { cornerTable, baseTile }
+// WANG_DATA 由 wang_data.js script 标签同步加载（不依赖 fetch）
+function getWangTable() {
+  if (typeof window !== "undefined" && window.WANG_DATA) return window.WANG_DATA;
+  return null;
+}
 function wangLookup(tx, ty, tiles, mapW, mapH) {
-  if (!WANG_TABLE) return -1;
+  const WT = getWangTable();
+  if (!WT) return -1;
   const idx = ty * mapW + tx;
   const own = TERRAIN_WANG_COLOR[tiles[idx]] ?? 0;
   function at(x, y) {
@@ -86,11 +91,11 @@ function wangLookup(tx, ty, tiles, mapW, mapH) {
   const BL = SW !== own ? SW : (S !== own ? S : (W !== own ? W : own));
   const TL = NW !== own ? NW : (N !== own ? N : (W !== own ? W : own));
   const key = [TR, BR, BL, TL].join(",");
-  const ids = WANG_TABLE.cornerTable[key];
+  const ids = WT.cornerTable[key];
   if (ids && ids.length > 0) return ids[(tx * 31 + ty * 57) % ids.length];
   // 兜底: 地形基底 tile
   const tName = TERRAIN_KEY[tiles[idx]];
-  const base = WANG_TABLE.baseTile;
+  const base = WT.baseTile;
   const bKey = { deepWater: "Deep Water", shallowWater: "Shallow Water", sand: "Sand",
     grass: "Grass", forest: "Grass", highland: "Dirt", mountain: "Mountain" }[tName];
   return (base[bKey] ?? base["Grass"]) ?? 735;
