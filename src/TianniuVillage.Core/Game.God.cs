@@ -33,7 +33,7 @@ public sealed partial class Game
         {
             if (b.Key != "farm" || b.State != BuildingState.Complete) continue;
             for (int i = 0; i < b.CropPhase.Length; i++)
-                if (b.CropPhase[i] == 2) { b.CropPhase[i] = 3; b.CropGrowth[i] = 0; }
+                if (b.CropPhase[i] is 2 or 3) { b.CropPhase[i] = 4; b.CropGrowth[i] = 0; }
         }
         foreach (var node in World.Resources.Values)
             if (node.Kind == ResKind.BerryBush && node.RegenDaysLeft <= 0) node.HasBerries = true;

@@ -206,7 +206,7 @@ public sealed partial class Game
                     EnsureJob(JobKind.Plow, farm, i, cx, cy, 92);
                 else if (phase == 1 && Season == Season.Spring)
                     EnsureJob(JobKind.Sow, farm, i, cx, cy, 95);
-                else if (phase == 3)
+                else if (phase == 4)
                     EnsureJob(JobKind.Harvest, farm, i, cx, cy, 96);
             }
         }
@@ -668,11 +668,14 @@ public sealed partial class Game
                 b.CropGrowth = new float[b.CropPhase.Length];
             for (int i = 0; i < b.CropPhase.Length; i++)
             {
-                if (b.CropPhase[i] != 2) continue;
+                if (b.CropPhase[i] is not (2 or 3)) continue;
                 b.CropGrowth[i] += growthPerHour;
-                if (b.CropGrowth[i] >= 100f)
-                {
+                // 4 阶段生长: 2(出苗) 40% → 3(抽穗) 100% → 4(成熟)
+                if (b.CropPhase[i] == 2 && b.CropGrowth[i] >= 40f)
                     b.CropPhase[i] = 3;
+                else if (b.CropPhase[i] == 3 && b.CropGrowth[i] >= 100f)
+                {
+                    b.CropPhase[i] = 4;
                     b.CropGrowth[i] = 0;
                 }
             }

@@ -263,21 +263,29 @@ class BuildingLayer {
         s._state = b.state;
         s.texture = this.tex(b.k, b.state);
         if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; s._livestockKey = null; }
-        if (s._cropSprite) { s._cropSprite.destroy(); s._cropSprite = null; s._crop = null; }
+        if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy()); s._cropSprites = null; s._cropSig = null; }
+        if (s._cropSprite) { s._cropSprite.destroy(); s._cropSprite = null; }
       }
       if (b.k === "farm") {
-        const growing = (b.crop || []).some(c => c === 2);
-        const ripe = (b.crop || []).some(c => c === 3);
-        const stage = ripe ? 3 : growing ? 2 : 1;
-        if (s._crop !== stage) {
-          s._crop = stage;
-          const cov = makeCropOverlayTex(stage);
-          if (s._cropSprite) { s._cropSprite.destroy(); s._cropSprite = null; }
-          if (cov) {
-            s._cropSprite = new PIXI.Sprite(cov);
-            s._cropSprite.scale.set(2, 2);
-            s._cropSprite.position.set(s.x, s.y);
-            this.container.addChild(s._cropSprite);
+        // 逐格 4 阶段作物（crop[]: 1犁地/2出苗/3抽穗/4成熟）
+        const sig = (b.crop || []).join(",");
+        if (s._cropSig !== sig) {
+          s._cropSig = sig;
+          if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy()); s._cropSprites = null; }
+          s._cropSprites = [];
+          const style = BuildingStyle[b.k] || { w: 3, h: 3 };
+          const crop = b.crop || [];
+          for (let i = 0; i < crop.length; i++) {
+            const phase = crop[i];
+            if (phase < 2) continue;
+            const cov = makeCropOverlay(phase);
+            if (!cov) continue;
+            const sp = new PIXI.Sprite(PIXI.Texture.from(cov));
+            sp.scale.set(2, 2);
+            const col = i % style.w, row = Math.floor(i / style.w);
+            sp.position.set((b.x + col) * TILE, (b.y + row) * TILE);
+            this.container.addChild(sp);
+            s._cropSprites.push(sp);
           }
         }
       }
@@ -311,6 +319,7 @@ class BuildingLayer {
     for (const [id, s] of this.sprites) {
       if (!seen.has(id)) {
         if (s._cropSprite) s._cropSprite.destroy();
+        if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy()); s._cropSprites = null; }
         if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; }
         s.destroy();
         this.sprites.delete(id);

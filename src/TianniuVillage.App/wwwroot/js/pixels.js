@@ -713,10 +713,22 @@ function makeBuildingTexture(key, state) {
     return c;
   }
   if (key === "farm") {
-    ctx.fillStyle = "#8a6a44";
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "#7a5c3a";
-    for (let y = 2; y < H; y += 5) ctx.fillRect(1, y, W - 2, 2);
+    // 农田：LPC 耕土底 + 犁沟（若四季表就绪）
+    const soil = LpcSheets[lpcSeasonName()] ? [2763, 2761, 2635, 2633, 2629] : null;
+    if (soil) {
+      for (let ty = 0; ty < s.h; ty++)
+        for (let tx = 0; tx < s.w; tx++) {
+          const id = soil[(tx + ty * 3) % soil.length];
+          ctx.drawImage(lpcCell(id), tx * TILE, ty * TILE);
+        }
+      ctx.fillStyle = "rgba(70,45,25,0.45)";
+      for (let y = 4; y < H; y += 8) ctx.fillRect(0, y, W, 2);
+    } else {
+      ctx.fillStyle = "#8a6a44";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#7a5c3a";
+      for (let y = 4; y < H; y += 8) ctx.fillRect(0, y, W, 2);
+    }
     return c;
   }
 
@@ -798,20 +810,30 @@ function makeBuildingTexture(key, state) {
   return c;
 }
 
-const CropStageColors = [null, "#5a8a3c", "#4a9a4c", "#d8b84a"];
+const CropStageColors = [null, null, "#6a9a4a", "#3f8a3a", "#d8b84a"];
 function makeCropOverlay(stage) {
-  if (stage === 0) return null;
-  const c = mkCanvas(TILE, TILE);
+  if (stage <= 1) return null;
+  const c = mkCanvas(LEGACY, LEGACY);
   const ctx = c.getContext("2d");
-  ctx.fillStyle = CropStageColors[stage] || "#4a9a4c";
-  if (stage === 1) {
-    for (let i = 0; i < 3; i++) ctx.fillRect(4 + i * 4, 11, 1, 3);
-  } else if (stage === 2) {
-    for (let i = 0; i < 3; i++) { ctx.fillRect(4 + i * 4, 8, 2, 6); ctx.fillRect(3 + i * 4, 10, 4, 2); }
+  ctx.fillStyle = CropStageColors[stage] || "#3f8a3a";
+  if (stage === 2) {
+    // 出苗：嫩绿小芽
+    ctx.fillRect(5, 9, 1, 5); ctx.fillRect(9, 9, 1, 5);
+    ctx.fillStyle = "#8fc06a";
+    ctx.fillRect(4, 8, 3, 2); ctx.fillRect(8, 8, 3, 2);
+  } else if (stage === 3) {
+    // 抽穗：成株
+    for (let i = 0; i < 4; i++) {
+      const x = 3 + i * 3;
+      ctx.fillRect(x, 4, 2, 11);
+      ctx.fillStyle = "#5a9a44"; ctx.fillRect(x - 1, 6, 4, 2); ctx.fillStyle = "#3f8a3a";
+    }
   } else {
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(4 + i * 4, 5, 2, 9);
-      ctx.fillStyle = "#e8c85a"; ctx.fillRect(3 + i * 4, 4, 4, 3);
+    // 成熟：金穗
+    for (let i = 0; i < 4; i++) {
+      const x = 3 + i * 3;
+      ctx.fillRect(x, 3, 2, 11);
+      ctx.fillStyle = "#e8c85a"; ctx.fillRect(x - 1, 2, 4, 3);
       ctx.fillStyle = "#d8b84a";
     }
   }
