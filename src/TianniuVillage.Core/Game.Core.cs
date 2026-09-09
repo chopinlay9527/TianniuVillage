@@ -75,6 +75,7 @@ public sealed partial class Game
     private void SpawnInitialVillagers()
     {
         var (cx, cy) = World.SettleCenter;
+        string[] foods = ["berries", "mushroom", "fish", "meat", "grain", "meal", "milk", "egg"];
         for (int i = 0; i < Balance.InitialVillagers; i++)
         {
             var sex = i % 2 == 0 ? Sex.Male : Sex.Female;
@@ -87,8 +88,12 @@ public sealed partial class Game
                 Pos = FindSpawnNear(cx, cy),
                 Diligence = Rng.NextFloat(30, 90),
                 Optimism = Rng.NextFloat(30, 90),
-                Sociability = Rng.NextFloat(30, 90)
+                Sociability = Rng.NextFloat(30, 90),
+                FavoriteFood = foods[Rng.Next(foods.Length)],
+                HatedFood = foods[Rng.Next(foods.Length)]
             };
+            if (v.FavoriteFood == v.HatedFood)
+                v.HatedFood = foods[(Array.IndexOf(foods, v.FavoriteFood) + 1) % foods.Length];
             foreach (var key in v.Skills.Keys.ToList())
                 v.Skills[key] = Rng.NextFloat(10, 45);
             Villagers.Add(v);
@@ -136,6 +141,8 @@ public sealed partial class Game
         Tick++;
         World.Map.WaterCostMul = Season == Season.Winter || Weather == Weather.Snow ? 2f : 1f;
         if (Tick % 5 == 0) RunEconomyPlanner();
+        TickFestival();
+        TickMerchant();
         if (MinuteOfDay % 60 == 0) HourlyTick();
         if (MinuteOfDay == 0) DailyTick();
         if (MinuteOfDay == Balance.SleepStartMinute) LightTorches();
@@ -175,6 +182,7 @@ public sealed partial class Game
         LivestockDailyTick();
         RegenResources();
         ReplenishAnimals();
+        EnrichmentDailyTick();
         foreach (var v in Villagers)
         {
             if (!v.Alive) continue;

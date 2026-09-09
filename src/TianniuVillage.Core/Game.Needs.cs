@@ -41,8 +41,18 @@ public sealed partial class Game
 
         if (v.Ill)
         {
-            float dmg = Balance.HealthDecayIllnessPerHour / 60f;
-            v.Health = Math.Max(5f, v.Health - dmg);
+            float diseaseDrain = v.Disease != DiseaseType.None
+                ? DiseaseInfo.Data[(int)v.Disease].healthDrain
+                : Balance.HealthDecayIllnessPerHour;
+            bool clinic = World.BuildingsOf("clinic").Any();
+            if (clinic) diseaseDrain /= Balance.ClinicRecoveryBoost;
+            v.Health = Math.Max(5f, v.Health - diseaseDrain / 60f);
+        }
+
+        if (v.Injury == InjuryType.Fracture)
+        {
+            v.Health = Math.Max(3f, v.Health - 0.3f / 60f);
+            if (v.Health <= 0) Kill(v, DeathCause.Accident, "因伤势恶化不治身亡");
         }
 
         var home = World.Buildings.FirstOrDefault(b => b.Id == v.HomeId && b.State == BuildingState.Complete);
@@ -180,6 +190,10 @@ public sealed partial class Game
         if (item == "meal") v.AddMood("吃了热腾腾的熟食", 5f, 14f);
         else if (item is "fish" or "meat") v.AddMood("吃了生食，有点反胃", -3f, 10f);
         else if (item == "grain") v.AddMood("干啃谷物果腹", -2f, 8f);
+
+        if (item == v.FavoriteFood) v.AddMood($"吃到了最爱的{ItemDefs.Name(item)}", 5f, 12f);
+        else if (item == v.HatedFood) v.AddMood($"被迫吃了讨厌的{ItemDefs.Name(item)}", -5f, 12f);
+
         if (v.Satiety < 60f && World.CountItem(item) > 0)
         {
             World.TryTakeItem(item, 1);

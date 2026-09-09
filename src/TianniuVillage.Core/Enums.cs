@@ -31,7 +31,43 @@ public enum AgeStage { Infant, Child, Adult, Elder }
 
 public enum Season { Spring, Summer, Autumn, Winter }
 
-public enum Weather { Sunny, Cloudy, Rain, Storm, Snow }
+public enum Weather { Sunny, Cloudy, Rain, Storm, Snow, Fog }
+
+public enum DiseaseType
+{
+    None,
+    Cold,
+    Dysentery,
+    Pneumonia,
+    HeatStroke,
+    Plague
+}
+
+public enum InjuryType
+{
+    None,
+    Bruise,
+    Cut,
+    Fracture
+}
+
+public enum FestivalType
+{
+    None,
+    NewYear,
+    Harvest,
+    WinterSolstice,
+    Wedding,
+    Funeral
+}
+
+public enum VillageRole
+{
+    None,
+    Elder,
+    HuntChief,
+    Healer
+}
 
 public enum VillagerActivity
 {

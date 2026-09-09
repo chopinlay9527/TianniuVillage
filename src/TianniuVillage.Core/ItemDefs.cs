@@ -33,6 +33,13 @@ public static class ItemDefs
     public static readonly ItemDef Plank = new("plank", "木板", ItemCategory.Material, 0f);
     public static readonly ItemDef Stone = new("stone", "石料", ItemCategory.Material, 0f);
     public static readonly ItemDef Herb = new("herb", "草药", ItemCategory.Medicine, 0f);
+    public static readonly ItemDef Cheese = new("cheese", "奶酪", ItemCategory.Food, 50f);
+    public static readonly ItemDef Jerky = new("jerky", "肉干", ItemCategory.Food, 40f);
+    public static readonly ItemDef HideCoat = new("hide_coat", "毛皮大衣", ItemCategory.Material, 0f);
+    public static readonly ItemDef Veggie = new("veggie", "蔬菜", ItemCategory.Food, 30f);
+    public static readonly ItemDef Rice = new("rice", "稻米", ItemCategory.Food, 35f);
+    public static readonly ItemDef Bean = new("bean", "豆类", ItemCategory.Food, 28f);
+    public static readonly ItemDef Wheat = new("wheat", "小麦", ItemCategory.Food, 30f);
 
     public static readonly Dictionary<string, ItemDef> All = new()
     {
@@ -62,7 +69,14 @@ public static class ItemDefs
         [Log.Id] = Log,
         [Plank.Id] = Plank,
         [Stone.Id] = Stone,
-        [Herb.Id] = Herb
+        [Herb.Id] = Herb,
+        [Cheese.Id] = Cheese,
+        [Jerky.Id] = Jerky,
+        [HideCoat.Id] = HideCoat,
+        [Veggie.Id] = Veggie,
+        [Rice.Id] = Rice,
+        [Bean.Id] = Bean,
+        [Wheat.Id] = Wheat
     };
 
     public static string Name(string id) => All.TryGetValue(id, out var def) ? def.NameZh : id;

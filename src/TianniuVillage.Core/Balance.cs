@@ -124,4 +124,19 @@ public static class Balance
     public const int EggsPerChickenPerDay = 2;
     public const int MilkPerSheepPerDay = 2;
     public const int SlaughterSeasons = 2;
+
+    public const float AccidentChanceFell = 0.02f;
+    public const float AccidentChanceMine = 0.015f;
+    public const float AccidentChanceHunt = 0.03f;
+    public const int QuarryDailyStone = 2;
+    public const float HerbGardenBoost = 1.5f;
+    public const float ClinicRecoveryBoost = 2.0f;
+    public const float MentalBreakThreshold = 15f;
+    public const int MentalBreakTrigger = 2;
+    public const int FestivalFoodCost = 20;
+    public const float FestivalHappinessBoost = 12f;
+    public const float WoolToClothEfficiency = 1.5f;
+    public const float HideCoatWarmth = 0.6f;
+    public const int MerchantVisitInterval = 30;
+    public const int MerchantStayTicks = 1440;
 }

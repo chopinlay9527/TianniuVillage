@@ -40,6 +40,7 @@ public sealed partial class Game
                     break;
                 case VillagerActivity.Sleeping:
                     if (ShouldWake(v)) WakeUp(v);
+                    else if (v.TicksInActivity == 120) ReflectDuringSleep(v);
                     break;
                 case VillagerActivity.Resting:
                     if (v.Stamina > 55f) { v.Activity = VillagerActivity.Idle; SetSelfTask(v, null, null); }

@@ -73,9 +73,9 @@ public sealed partial class Game
             int fishJobs = 2 - Jobs.ClaimedCount(JobKind.Fish) - Jobs.OpenCount(JobKind.Fish);
             PostResourceJobs(JobKind.Fish, ResKind.FishSpot, fishJobs, Season == Season.Winter ? 88 : 70);
         }
-        if (hasLodge && World.Animals.Any(a => a.Kind == "deer"))
+        if (hasLodge && World.Animals.Any(a => a.Kind is "deer" or "rabbit"))
         {
-            int huntJobs = 1 - Jobs.ClaimedCount(JobKind.Hunt) - Jobs.OpenCount(JobKind.Hunt);
+            int huntJobs = 2 - Jobs.ClaimedCount(JobKind.Hunt) - Jobs.OpenCount(JobKind.Hunt);
             PostHuntJobs(huntJobs);
         }
     }
@@ -115,13 +115,15 @@ public sealed partial class Game
     private void PostHuntJobs(int count)
     {
         if (count <= 0) return;
-        foreach (var animal in World.Animals.Where(a => a.Kind == "deer").Take(count))
+        var targets = World.Animals.Where(a => a.Kind is "deer" or "rabbit").OrderBy(a => a.Kind == "deer" ? 0 : 1);
+        foreach (var animal in targets.Take(count))
         {
             bool alreadyPosted = false;
             foreach (var j in Jobs.All)
                 if (j.AnimalId == animal.Id && j.State != JobState.Done) { alreadyPosted = true; break; }
             if (alreadyPosted) continue;
-            Jobs.Add(World, JobKind.Hunt, 65, animal.X, animal.Y, animalId: animal.Id);
+            int pri = animal.Kind == "deer" ? 65 : 60;
+            Jobs.Add(World, JobKind.Hunt, pri, animal.X, animal.Y, animalId: animal.Id);
         }
     }
 

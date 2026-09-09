@@ -36,9 +36,19 @@ public sealed class Villager
     public int PostpartumDays;
     public bool Ill;
     public float IllnessDaysLeft;
+    public DiseaseType Disease = DiseaseType.None;
+    public InjuryType Injury = InjuryType.None;
+    public float InjuryDaysLeft;
     public bool WinterClothes;
     public bool SleepingIndoor;
     public bool Alive = true;
+    public string FavoriteFood = "berries";
+    public string HatedFood = "mushroom";
+    public float Reputation;
+    public VillageRole Role = VillageRole.None;
+    public int ToolDurabilityLeft;
+    public bool MentalBreaking;
+    public int MentalBreakDaysLeft;
 
     public List<MoodMod> MoodMods = [];
     public List<MemoryEntry> Memories = [];

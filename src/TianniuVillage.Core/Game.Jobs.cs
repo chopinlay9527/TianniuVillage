@@ -285,11 +285,26 @@ public sealed partial class Game
         float staminaF = v.Stamina < 25f ? 0.6f : 1f;
         float moodF = v.Mood < 30f ? 0.7f : 1f;
         float ageF = v.Stage == AgeStage.Elder ? 0.75f : 1f;
-        float weatherF = Weather is Weather.Rain or Weather.Snow ? 0.6f : 1f;
+        float weatherF = Weather is Weather.Rain or Weather.Snow or Weather.Fog ? 0.6f : 1f;
         float techF = 1f;
         if (HasTech("knotrecord")) techF *= 1.05f;
         if (HasTech("stoneaxe") && job.Kind == JobKind.Fell) techF *= 1.25f;
-        return skillF * staminaF * moodF * ageF * weatherF * techF;
+        float toolF = 1f;
+        if (job.Kind is JobKind.Fell or JobKind.Mine or JobKind.MineOre or JobKind.Plow or JobKind.Harvest)
+        {
+            if (World.CountItem("iron_tool") > 0) toolF = Balance.IronToolEfficiency;
+            else if (World.CountItem("copper_tool") > 0) toolF = Balance.CopperToolEfficiency;
+            else toolF = Balance.NoToolEfficiency;
+        }
+        float injuryF = v.Injury switch
+        {
+            InjuryType.Fracture => 0.4f,
+            InjuryType.Cut => 0.7f,
+            _ => 1f
+        };
+        float mentalF = v.MentalBreaking ? 0.3f : 1f;
+        float festivalF = CurrentFestival != null ? 0.5f : 1f;
+        return skillF * staminaF * moodF * ageF * weatherF * techF * toolF * injuryF * mentalF * festivalF;
     }
 
     private int JobMinutes(Job job, Villager v)
@@ -545,12 +560,17 @@ public sealed partial class Game
     {
         var animal = World.Animals.FirstOrDefault(a => a.Id == job.AnimalId);
         if (animal != null) World.Animals.Remove(animal);
-        int yield = Math.Max(2, (int)(5 * (1f + v.SkillOf("hunting") / 200f)));
-        int hides = 1 + (v.SkillOf("hunting") > 50 ? 1 : 0);
+
+        bool isDeer = animal == null || animal.Kind == "deer";
+        int yield = isDeer
+            ? Math.Max(2, (int)(5 * (1f + v.SkillOf("hunting") / 200f)))
+            : Math.Max(1, (int)(2 * (1f + v.SkillOf("hunting") / 200f)));
+        int hides = isDeer ? 1 + (v.SkillOf("hunting") > 50 ? 1 : 0) : (v.SkillOf("hunting") > 50 ? 1 : 0);
+        string animalZh = isDeer ? "鹿" : "野兔";
 
         float captureChance = Balance.HuntCaptureChance + (World.BuildingsOf("lodge").Any() ? Balance.HuntCaptureBonus : 0f);
         var pen = World.Buildings.FirstOrDefault(x => x.Key is "pen" or "ranch" && x.State == BuildingState.Complete);
-        if (pen != null && Rng.Chance(captureChance))
+        if (pen != null && isDeer && Rng.Chance(captureChance))
         {
             int cap = pen.Key == "pen" ? Balance.PenCapacity : Balance.RanchCapacity;
             if (pen.LivestockCount < cap)
@@ -568,7 +588,7 @@ public sealed partial class Game
             }
         }
 
-        Log($"{v.Name}狩猎成功，获得生肉×{yield}、皮毛×{hides}", LogSeverity.Normal);
+        Log($"{v.Name}猎到了一只{animalZh}，获得生肉×{yield}、皮毛×{hides}", LogSeverity.Normal);
         BeginCarrying(v, "meat", yield);
         BeginCarrying(v, "hide", hides);
     }
