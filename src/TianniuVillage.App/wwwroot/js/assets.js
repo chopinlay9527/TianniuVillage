@@ -24,6 +24,9 @@ const CharSheets = {};
 const AnimalSheets = {};
 // 贴图整合图（上 Town 下 Farm，配置见 textures.js）
 const Atlas = { img: null };
+// LPC Revised 四季地形（OGA-BY 3.0，32px，同布局换皮）
+const LpcSheets = {};
+const LPC_FILES = ["spring", "summer", "autumn", "winter"];
 const ANIMAL_FILES = [
   "Chicken_SpriteSheetWhite.png", "Chicken_SpriteSheetBrown.png",
   "Chicken_SpriteSheetCute.png", "Chicken_SpriteSheetBlack.png",
@@ -43,7 +46,7 @@ function loadImage(url) {
 
 async function loadCharSheets(onProgress) {
   if (loadPromise) return loadPromise;
-  const total = Object.keys(CHAR_DEFS).length + ANIMAL_FILES.length + 1;
+  const total = Object.keys(CHAR_DEFS).length + ANIMAL_FILES.length + 1 + LPC_FILES.length;
   let done = 0;
   const tick = () => { done++; onProgress && onProgress(done, total); };
   loadPromise = (async () => {
@@ -59,6 +62,10 @@ async function loadCharSheets(onProgress) {
     }));
     Atlas.img = await loadImage("assets/atlas.png");
     tick();
+    for (const s of LPC_FILES) {
+      LpcSheets[s] = await loadImage("assets/lpc/lpc-terrain-" + s + ".png");
+      tick();
+    }
   })();
   return loadPromise;
 }

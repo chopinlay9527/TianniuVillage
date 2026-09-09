@@ -30,6 +30,7 @@ function ambientAt(hour) {
 }
 
 window.addEventListener("load", () => {
+  PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST; // 像素画最近邻缩放，杜绝模糊
   app = new PIXI.Application({
     view: document.getElementById("stage"),
     resizeTo: window,
@@ -110,6 +111,7 @@ async function onInit(msg) {
 
 async function doInit(msg) {
   if (Object.keys(CharSheets).length === 0) await loadCharSheets();
+  handleSeason(msg.stats.season);
   lastLogSeq = Math.max(0, ...(msg.logs || []).map(l => l.seq));
   gameView.buildFromInit(msg);
   const vc = msg.buildings.find(b => b.k === "villagecenter");
@@ -137,8 +139,18 @@ async function doInit(msg) {
 }
 
 let lastLogSeq = 0;
+let lastSeason = -1;
+function handleSeason(season) {
+  if (season === lastSeason) return;
+  lastSeason = season;
+  if (Object.keys(LpcSheets).length) {
+    swapSeason(season);
+    gameView.rebuildAllChunks();
+  }
+}
 function onUpdate(msg) {
   if (!gameView.mapW) return;
+  handleSeason(msg.stats.season);
   villagerLayer.sync(msg.villagers);
   buildingLayer.sync(msg.buildings);
   animalLayer.sync(msg.animals || []);

@@ -58,6 +58,13 @@ class WorldView {
     return Math.floor(y / CHUNK) * Math.ceil(this.mapW / CHUNK) + Math.floor(x / CHUNK);
   }
 
+  rebuildAllChunks() {
+    for (let cy = 0; cy < this.cy; cy++)
+      for (let cx = 0; cx < this.cx; cx++)
+        this.redrawChunk(cx, cy);
+    this._mmDirty = true;
+  }
+
   terrainAtIdx(i) {
     return this.tiles[i];
   }
@@ -71,30 +78,41 @@ class WorldView {
     const ctx = this.chunkCanvases[idx].getContext("2d");
     ctx.clearRect(0, 0, CHUNK_PX, CHUNK_PX);
     const x0 = cxx * CHUNK, y0 = cyy * CHUNK;
+    // 通道 A：LPC 原生 32px 地形（32px/格铺满 chunk）
     for (let ly = 0; ly < CHUNK; ly++) {
       for (let lx = 0; lx < CHUNK; lx++) {
         const wx = x0 + lx, wy = y0 + ly;
         if (wx >= this.mapW || wy >= this.mapH) continue;
         drawTerrainTile(ctx, this.tiles[wy * this.mapW + wx], wx, wy, lx * TILE, ly * TILE);
+      }
+    }
+    // 通道 B：旧 16px 素材（道路/资源物件）经 ×2 缩放叠加
+    ctx.save();
+    ctx.scale(TILE / LEGACY, TILE / LEGACY);
+    for (let ly = 0; ly < CHUNK; ly++) {
+      for (let lx = 0; lx < CHUNK; lx++) {
+        const wx = x0 + lx, wy = y0 + ly;
+        if (wx >= this.mapW || wy >= this.mapH) continue;
         if (this.roadLevels) {
           const rl = this.roadLevels[wy * this.mapW + wx];
-          if (rl) drawRoad(ctx, rl, lx * TILE, ly * TILE, wx, wy, this.roadLevels, this.mapW, this.mapH);
+          if (rl) drawRoad(ctx, rl, lx * LEGACY, ly * LEGACY, wx, wy, this.roadLevels, this.mapW, this.mapH);
         }
       }
     }
     for (const rid of this.chunkRes[idx]) {
       const r = this.resById.get(rid);
       if (!r) continue;
-      drawResource(ctx, r, (r.x - x0) * TILE, (r.y - y0) * TILE);
+      drawResource(ctx, r, (r.x - x0) * LEGACY, (r.y - y0) * LEGACY);
     }
-    // 双格树：紧邻本 chunk 下方那行的树会向上伸出 16px，补画进本 chunk 底行
+    // 双格树/高物件：紧邻本 chunk 下方那行伸入本 chunk 的部分
     const belowY = y0 + CHUNK;
     if (belowY < this.mapH) {
       for (const r of this.resById.values()) {
         if (r.y !== belowY || r.x < x0 || r.x >= x0 + CHUNK) continue;
-        drawResource(ctx, r, (r.x - x0) * TILE, (r.y - y0) * TILE);
+        drawResource(ctx, r, (r.x - x0) * LEGACY, (r.y - y0) * LEGACY);
       }
     }
+    ctx.restore();
     if (this.chunkSprites[idx]) {
       this.chunkSprites[idx].texture.update();
     }

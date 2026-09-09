@@ -19,16 +19,16 @@ const TEX = {
   // 写法 B: { tiles: ["t0","t1"], tint: "rgba(...)" }  → 素材格(多个则随机混铺) + 可选罩色
   // 任意写法可加 noise: 0.07 → 杂色强度（每格随机撒 6 个明暗 1px 噪点，0=关闭）
   terrain: {
-    // waves: true → 水面波纹（横向短线+闪光点，哈希散布不重复）
-    deepWater:    { color: "#3a6fb0", waves: true },                 // 深水（蓝）
-    shallowWater: { color: "#5aa9dd", waves: true },                 // 浅水（蓝）
-    // noise = 杂色强度（每格随机撒 14 个明暗 1px 噪点；0 = 关闭）
-    sand:         { tiles: ["t25"], noise: 0.12 },                   // 沙滩
-    grass:        { tiles: ["t0"], noise: 0.12 },                    // 草地
-    forest:       { tiles: ["t0"], tint: "rgba(20,60,20,0.32)", noise: 0.12 },    // 森林
-    highland:     { tiles: ["t25"], tint: "rgba(115,115,100,0.30)", noise: 0.12 }, // 高地
-    mountain:     { tiles: ["t25"], tint: "rgba(100,100,115,0.48)",  // 山
-                    noise: 0.12, cracks: true, crackColor: "rgba(35,35,45,0.55)" },
+    // lpc = LPC Revised 全不透明基底格 id（32px，四季自动换皮；冬水深水结冰）
+    // waves: true → 水波; noise = 杂色强度; tint 可选罩色; cracks: 山体裂纹
+    deepWater:    { lpc: [1921, 1923, 1925, 1927], waves: true },   // 深水
+    shallowWater: { lpc: [353, 167, 170, 234], waves: true },       // 浅水
+    sand:         { lpc: [201, 202, 203, 457, 459], noise: 0.05 },  // 沙滩
+    grass:        { lpc: [1474, 1477, 2184, 2696], noise: 0.05 },   // 草地
+    forest:       { lpc: [1474, 1477, 2184], tint: "rgba(20,60,20,0.26)", noise: 0.05 },  // 森林
+    highland:     { lpc: [16, 17, 18, 19, 21], noise: 0.06 },       // 高地(暖岩)
+    mountain:     { lpc: [851, 855, 856, 915],                      // 山(灰岩)
+                    noise: 0.05, cracks: true, crackColor: "rgba(35,35,45,0.5)" },
   },
 
   // ---------- 资源物件 ----------

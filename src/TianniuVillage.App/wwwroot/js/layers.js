@@ -57,6 +57,7 @@ class VillagerLayer {
       if (!s) {
         const tex = PIXI.Texture.from(makeVillagerTexture(v.sex, v.stage, v.id));
         s = new PIXI.Sprite(tex);
+        s.scale.set(2, 2);
         s.anchor.set(0.5, 1);
         s.roundPixels = false;
         this.container.addChild(s);
@@ -206,6 +207,7 @@ class AnimalLayer {
       const ty = (a.y + 1) * TILE;
       if (!s) {
         s = new PIXI.Sprite(this.textures[a.k] || this.textures.rabbit);
+        s.scale.set(2, 2);
         s.anchor.set(0.5, 1);
         s.alpha = 0.95;
         this.container.addChild(s);
@@ -251,6 +253,7 @@ class BuildingLayer {
       let s = this.sprites.get(b.id);
       if (!s) {
         s = new PIXI.Sprite(this.tex(b.k, b.state));
+        s.scale.set(2, 2);
         s.position.set(b.x * TILE, b.y * TILE);
         s.roundPixels = true;
         this.container.addChild(s);
@@ -272,6 +275,7 @@ class BuildingLayer {
           if (s._cropSprite) { s._cropSprite.destroy(); s._cropSprite = null; }
           if (cov) {
             s._cropSprite = new PIXI.Sprite(cov);
+            s._cropSprite.scale.set(2, 2);
             s._cropSprite.position.set(s.x, s.y);
             this.container.addChild(s._cropSprite);
           }
@@ -288,6 +292,7 @@ class BuildingLayer {
           for (let i = 0; i < cap; i++) {
             const tex2 = PIXI.Texture.from(makeLivestockTexture(b.lt, b.id * 31 + i * 17));
             const sp = new PIXI.Sprite(tex2);
+            sp.scale.set(2, 2);
             sp.anchor.set(0.5, 1);
             sp.alpha = 0.98;
             const col = i % style.w;

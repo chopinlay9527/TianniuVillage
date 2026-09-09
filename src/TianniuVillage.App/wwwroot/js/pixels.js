@@ -1,8 +1,17 @@
 "use strict";
 
-const TILE = 16;
+const TILE = 32;          // LPC 32px 规格
+const LEGACY = 16;        // 旧 16px 素材的基准单位
 const CHUNK = 16;
 const CHUNK_PX = TILE * CHUNK;
+
+// 旧 16px 基准画布 → 当前规格 2× 放大（最近邻，像素风格清晰）
+function up2(c) {
+  const out = mkCanvas(c.width * 2, c.height * 2);
+  out.getContext("2d").imageSmoothingEnabled = false;
+  out.getContext("2d").drawImage(c, 0, 0, c.width, c.height, 0, 0, out.width, out.height);
+  return out;
+}
 
 function mkCanvas(w, h) {
   const c = document.createElement("canvas");
@@ -27,47 +36,64 @@ const TerrainColors = {
   6: ["#6b6e60", "#5f6255", "#74776a"]   // 山
 };
 
-// ===== 贴图系统：全部由 textures.js 的 TEX 配置驱动 =====
-// 素材图 assets/atlas.png（12 列 × 22 行）：上半 t0~t131(Town)，下半 f0~f131(Farm)
-const ATLAS_COLS = 12, ATLAS_FARM_ROW = 11;
-const atlasCellCache = new Map();
-function atlasCell(id) {
-  if (atlasCellCache.has(id)) return atlasCellCache.get(id);
-  const out = mkCanvas(16, 16);
-  const m = /^([tf])(\d+)$/.exec(String(id));
-  if (m && Atlas.img) {
-    const n = parseInt(m[2], 10);
-    const row = (m[1] === "t" ? 0 : ATLAS_FARM_ROW) + Math.floor(n / ATLAS_COLS);
-    const col = n % ATLAS_COLS;
-    out.getContext("2d").drawImage(Atlas.img, col * 16, row * 16, 16, 16, 0, 0, 16, 16);
-  }
-  atlasCellCache.set(id, out);
-  return out;
-}
+// ===== LPC Revised 地形（OGA-BY 3.0，32px，四季同布局）=====
+// 基底 id 清单见 assets/lpc/lpc_index.json（tsx 语义标签+颜色聚类实测提取）
+const LPC_TERRAIN_BASE = {
+  0: [1921, 1923, 1925, 1927],   // 深水(冬自动结冰)
+  1: [97, 98, 167, 169],         // 浅水
+  2: [12, 13, 74, 15],           // 沙滩
+  3: [1, 64, 65, 66, 7],         // 草地
+  4: [1, 64, 65],                // 森林(草地+深绿罩)
+  5: [16, 17, 18, 19, 21],       // 高地(暖岩)
+  6: [851, 852, 855, 856, 915]   // 山(灰岩)
+};
+const SEASON_SHEET = ["spring", "summer", "autumn", "winter"];
+let currentSeason = 0;           // 0春 1夏 2秋 3冬
+function setSeason(idx) { currentSeason = idx; }
+function lpcSeasonName() { return SEASON_SHEET[currentSeason]; }
 // 地形枚举 → TEX.terrain 键
 const TERRAIN_KEY = { 0: "deepWater", 1: "shallowWater", 2: "sand", 3: "grass", 4: "forest", 5: "highland", 6: "mountain" };
 
-// 地形杂色：基于坐标哈希的明暗 1px 噪点（每格 14 个散布，无重复网格感）
+const lpcCellCache = new Map();
+function lpcCell(id) {
+  if (lpcCellCache.has(id)) return lpcCellCache.get(id);
+  const out = mkCanvas(TILE, TILE);
+  const sheet = LpcSheets[lpcSeasonName()];
+  if (sheet) {
+    const ctx = out.getContext("2d");
+    ctx.drawImage(sheet, (id % 64) * TILE, Math.floor(id / 64) * TILE, TILE, TILE, 0, 0, TILE, TILE);
+  }
+  lpcCellCache.set(id, out);
+  return out;
+}
+// 换季：清空 LPC 格缓存并按新季重建（id 平行、冬水结冰）
+function swapSeason(idx) {
+  if (idx === currentSeason) return;
+  currentSeason = idx;
+  lpcCellCache.clear();
+}
+
+// 地形杂色(32px 规格)
 function terrainNoise(ctx, entry, tx, ty, px, py) {
   const a = entry.noise;
   for (let i = 0; i < 14; i++) {
-    const rx = Math.floor(hash01(tx, ty, 900 + i * 2) * 16);
-    const ry = Math.floor(hash01(ty, tx, 951 + i * 2) * 16);
+    const rx = Math.floor(hash01(tx, ty, 900 + i * 2) * (TILE - 4));
+    const ry = Math.floor(hash01(ty, tx, 951 + i * 2) * (TILE - 4));
     ctx.fillStyle = i % 2 ? "rgba(255,255,255," + a + ")" : "rgba(0,0,0," + (a * 0.9).toFixed(3) + ")";
-    ctx.fillRect(px + rx, py + ry, 1, 1);
+    ctx.fillRect(px + rx, py + ry, 2, 2);
   }
 }
 
-// 水波纹：哈希散布的横向短线 + 偶发闪光点
+// 水波纹(32px 规格)：哈希散布横向短线+闪光，避免重复网格感
 function waterWaves(ctx, tx, ty, px, py) {
-  const y1 = 2 + Math.floor(hash01(tx, ty, 700) * 12);
-  const y2 = 8 + Math.floor(hash01(ty, tx, 701) * 12);
+  const y1 = 4 + Math.floor(hash01(tx, ty, 700) * 22);
+  const y2 = 14 + Math.floor(hash01(ty, tx, 701) * 22);
   ctx.fillStyle = "rgba(230,245,252,0.35)";
-  ctx.fillRect(px + Math.floor(hash01(tx, ty, 702) * 9), py + y1, 4, 1);
-  ctx.fillRect(px + Math.floor(hash01(ty, tx, 703) * 10), py + y2, 3, 1);
+  ctx.fillRect(px + Math.floor(hash01(tx, ty, 702) * 20), py + y1, 8, 2);
+  ctx.fillRect(px + Math.floor(hash01(ty, tx, 703) * 22), py + y2, 6, 2);
   if (hash01(tx, ty, 704) > 0.55) {
     ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.fillRect(px + Math.floor(hash01(tx, ty, 705) * 14), py + Math.floor(hash01(ty, tx, 706) * 14), 1, 1);
+    ctx.fillRect(px + Math.floor(hash01(tx, ty, 705) * 28), py + Math.floor(hash01(ty, tx, 706) * 28), 2, 2);
   }
 }
 
@@ -75,21 +101,22 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
   const entry = TEX.terrain[TERRAIN_KEY[terrain]];
   if (entry) {
     let drawn = false;
-    if (entry.color) {
-      ctx.fillStyle = entry.color;
-      ctx.fillRect(px, py, 16, 16);
-      drawn = true;
-    } else if (entry.tiles && Atlas.img) {
-      const id = entry.tiles[(tx * 31 + ty * 57) % entry.tiles.length];
-      ctx.drawImage(atlasCell(id), 0, 0, 16, 16, px, py, 16, 16);
-      if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, 16, 16); }
+    if (entry.lpc && LpcSheets[lpcSeasonName()]) {
+      const ids = entry.lpc;
+      const id = ids[(tx * 31 + ty * 57) % ids.length];
+      ctx.drawImage(lpcCell(id), px, py);
+      if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, TILE, TILE); }
       if (entry.cracks) {
         const h1 = hash01(tx, ty, 500);
         ctx.fillStyle = entry.crackColor || "rgba(35,35,45,0.55)";
-        ctx.fillRect(px + 3 + Math.floor(h1 * 6), py + 2, 1, 5);
-        ctx.fillRect(px + 4 + Math.floor(h1 * 6), py + 7, 1, 4);
-        ctx.fillRect(px + 10 - Math.floor(h1 * 4), py + 9, 1, 4);
+        ctx.fillRect(px + 6 + Math.floor(h1 * 12), py + 4, 2, 10);
+        ctx.fillRect(px + 8 + Math.floor(h1 * 12), py + 14, 2, 8);
+        ctx.fillRect(px + 20 - Math.floor(h1 * 8), py + 18, 2, 8);
       }
+      drawn = true;
+    } else if (entry.color) {
+      ctx.fillStyle = entry.color;
+      ctx.fillRect(px, py, TILE, TILE);
       drawn = true;
     }
     if (drawn) {
@@ -98,6 +125,7 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
       return;
     }
   }
+  // 回退程序化基底
   const pal = TerrainColors[terrain] || TerrainColors[3];
   for (let y = 0; y < TILE; y++) {
     for (let x = 0; x < TILE; x++) {
@@ -114,6 +142,23 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
       ctx.fillRect(px + rx, py + ry + (ty + tx) % 3, 3, 1);
     }
   }
+}
+
+// ===== Tiny 物件小表（遗留：树/灌木等物件在 Phase 3 前继续使用）=====
+const ATLAS_COLS = 12, ATLAS_FARM_ROW = 11;
+const atlasCellCache = new Map();
+function atlasCell(id) {
+  if (atlasCellCache.has(id)) return atlasCellCache.get(id);
+  const out = mkCanvas(LEGACY, LEGACY);
+  const m = /^([tf])(\d+)$/.exec(String(id));
+  if (m && Atlas.img) {
+    const n = parseInt(m[2], 10);
+    const row = (m[1] === "t" ? 0 : ATLAS_FARM_ROW) + Math.floor(n / ATLAS_COLS);
+    const col = n % ATLAS_COLS;
+    out.getContext("2d").drawImage(Atlas.img, col * LEGACY, row * LEGACY, LEGACY, LEGACY, 0, 0, LEGACY, LEGACY);
+  }
+  atlasCellCache.set(id, out);
+  return out;
 }
 
 // 双格树：Tiny Town 的树 = 树冠格(上) + 树干格(下) 垂直拼接，合成 16x32
