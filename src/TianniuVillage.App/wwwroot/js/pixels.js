@@ -43,15 +43,15 @@ function tinyCell(pack, idx) {
   tinyCellCache.set(key, out);
   return out;
 }
-// 地形: base 源格变体 + tint 整格叠加（森林/深水/高地/山由基础色+罩色派生，风格统一）
+// 地形: 全部选用纯色平格（t0 草 / t25 土，零杂点），风格极简统一
 const TINY_TERRAIN = {
   0: { pack: "town", base: [77], tint: "rgba(15,35,70,0.38)" },        // 深水
-  1: { pack: "town", base: [77, 43], tint: null },                     // 浅水
-  2: { pack: "town", base: [25, 39, 40, 41, 42], tint: null },         // 沙滩(干土)
-  3: { pack: "town", base: [0, 1, 2], tint: null },                    // 草地
-  4: { pack: "town", base: [0, 1], tint: "rgba(20,60,20,0.32)" },      // 森林
-  5: { pack: "town", base: [25, 39], tint: "rgba(115,115,100,0.30)" }, // 高地
-  6: { pack: "town", base: [25, 39], tint: "rgba(100,100,115,0.48)" }  // 山
+  1: { pack: "town", base: [77], tint: null },                         // 浅水
+  2: { pack: "town", base: [25], tint: null },                         // 沙滩
+  3: { pack: "town", base: [0], tint: null },                          // 草地
+  4: { pack: "town", base: [0], tint: "rgba(20,60,20,0.32)" },         // 森林
+  5: { pack: "town", base: [25], tint: "rgba(115,115,100,0.30)" },     // 高地
+  6: { pack: "town", base: [25], tint: "rgba(100,100,115,0.48)" }      // 山
 };
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
