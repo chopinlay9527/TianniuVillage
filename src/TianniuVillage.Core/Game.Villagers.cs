@@ -172,7 +172,7 @@ public sealed partial class Game
 
     private void Decide(Villager v)
     {
-        v.DecisionCooldown = 10;
+        v.DecisionCooldown = 5;
 
         if (v.Satiety < Balance.EatWhenSatietyBelow) { StartEating(v); return; }
         if (v.Thirst < Balance.DrinkWhenThirstBelow) { StartDrinking(v); return; }

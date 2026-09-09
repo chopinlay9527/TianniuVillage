@@ -55,10 +55,10 @@ public sealed partial class Game
         if (deficit <= 0 && food >= bufferTarget) return;
         if (deficit < 0) deficit = 0;
 
-        int forageCap = Math.Max(2, pop / 3);
+        int forageCap = Math.Max(3, pop / 2);
         {
-            int cap = Math.Min(Season == Season.Autumn ? 8 : forageCap, forageCap + (Season == Season.Autumn ? 3 : 1));
-            int want = Math.Max(deficit / 4, (bufferTarget - food) / 8);
+            int cap = Season == Season.Autumn ? Math.Max(forageCap, pop) : forageCap;
+            int want = Math.Max(deficit / 3, (bufferTarget - food) / 6);
             int forageJobs = Math.Clamp(want, 1, cap) - Jobs.ClaimedCount(JobKind.Forage) - Jobs.OpenCount(JobKind.Forage);
             if (forageJobs > 0)
                 PostResourceJobs(JobKind.Forage, ResKind.BerryBush, forageJobs, Season == Season.Autumn ? 95 : Season == Season.Winter ? 96 : 90);
@@ -137,7 +137,7 @@ public sealed partial class Game
         int stoneNeed = 55 - World.CountItem("stone");
         if (stoneNeed > 0)
         {
-            int jobs = Math.Clamp(stoneNeed / 6, 1, 3) - Jobs.ClaimedCount(JobKind.Mine) - Jobs.OpenCount(JobKind.Mine);
+            int jobs = Math.Clamp(stoneNeed / 4, 1, 4) - Jobs.ClaimedCount(JobKind.Mine) - Jobs.OpenCount(JobKind.Mine);
             PostResourceJobs(JobKind.Mine, ResKind.StoneOutcrop, jobs, 45);
         }
 

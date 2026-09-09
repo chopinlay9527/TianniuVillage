@@ -84,8 +84,8 @@ public sealed class GameManager
 
     public object BuildUpdate()
     {
-        var update = Game.BuildUpdate(LastLogSeq);
-        if (update is not null && Game.Logs.Count > 0)
+        var update = Game.BuildUpdate(LastLogSeq) ?? new object();
+        if (Game.Logs.Count > 0)
             LastLogSeq = Math.Max(LastLogSeq, Game.Logs[^1].Seq);
         return update;
     }

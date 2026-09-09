@@ -35,7 +35,7 @@ public class StorageTests
 
         for (int i = 0; i < 400 && v.CarryLoad.Count > 0; i++) game.Step();
 
-        Assert.Equal(0, v.CarryLoad.Count);
+        Assert.Empty(v.CarryLoad);
         Assert.Equal(before + 5, game.World.CountItem("berries"));
     }
 
