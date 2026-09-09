@@ -18,8 +18,8 @@ const TEX = {
   // 写法 A: { color: "#91a0b8" }                      → 纯色填充
   // 写法 B: { tiles: ["t0","t1"], tint: "rgba(...)" }  → 素材格(多个则随机混铺) + 可选罩色
   terrain: {
-    deepWater:    { color: "#60708d" },                              // 深水
-    shallowWater: { color: "#91a0b8" },                              // 浅水
+    deepWater:    { color: "#3a6fb0" },                              // 深水（蓝）
+    shallowWater: { color: "#5aa9dd" },                              // 浅水（蓝）
     sand:         { tiles: ["t25"] },                                // 沙滩
     grass:        { tiles: ["t0"] },                                 // 草地
     forest:       { tiles: ["t0"], tint: "rgba(20,60,20,0.32)" },    // 森林(草地加深绿罩)
