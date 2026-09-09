@@ -119,41 +119,74 @@ function drawFishSpot(ctx, px, py) {
   ctx.fillRect(px + 10, py + 8, 1, 2);
 }
 
-function drawRoad(ctx, level, px, py, tx, ty) {
+function roadAt(roadLevels, mapW, mapH, x, y) {
+  if (x < 0 || y < 0 || x >= mapW || y >= mapH) return 0;
+  return roadLevels[y * mapW + x] | 0;
+}
+
+function drawRoad(ctx, level, px, py, wx, wy, roadLevels, mapW, mapH) {
+  const hasN = roadAt(roadLevels, mapW, mapH, wx, wy - 1) > 0;
+  const hasS = roadAt(roadLevels, mapW, mapH, wx, wy + 1) > 0;
+  const hasW = roadAt(roadLevels, mapW, mapH, wx - 1, wy) > 0;
+  const hasE = roadAt(roadLevels, mapW, mapH, wx + 1, wy) > 0;
+  const hasNE = roadAt(roadLevels, mapW, mapH, wx + 1, wy - 1) > 0;
+  const hasNW = roadAt(roadLevels, mapW, mapH, wx - 1, wy - 1) > 0;
+  const hasSE = roadAt(roadLevels, mapW, mapH, wx + 1, wy + 1) > 0;
+  const hasSW = roadAt(roadLevels, mapW, mapH, wx - 1, wy + 1) > 0;
+
+  // 主体：有路邻居的边延伸到格边缘，无邻居的边留草边
+  const x0 = hasW ? 0 : 1;
+  const x1 = hasE ? 16 : 15;
+  const y0 = hasN ? 0 : 2;
+  const y1 = hasS ? 16 : 14;
+  const bw = x1 - x0, bh = y1 - y0;
+
+  const base = level === 1 ? "#c9b088" : level === 2 ? "#a89878" : "#b4b0a4";
+  const edge = level === 1 ? "#b9a078" : level === 2 ? "#8a7a5c" : "#8f8b80";
+  const topBand = level === 3 ? "#c8c4b8" : edge;
+
+  ctx.fillStyle = base;
+  ctx.fillRect(px + x0, py + y0, bw, bh);
+
+  // 开放边描线（仅无路邻居的边）
+  ctx.fillStyle = topBand;
+  if (!hasN) ctx.fillRect(px + x0, py + y0, bw, 2);
+  ctx.fillStyle = edge;
+  if (!hasS) ctx.fillRect(px + x0, py + y1 - 2, bw, 2);
+  if (!hasW) ctx.fillRect(px + x0, py + y0, 1, bh);
+  if (!hasE) ctx.fillRect(px + x1 - 1, py + y0, 1, bh);
+
+  // 纯斜向连接：对角是路且两侧正交都不是路时，画角部阶梯连接块
+  ctx.fillStyle = base;
+  if (hasNE && !hasN && !hasE)
+    for (let i = 0; i < 6; i++) ctx.fillRect(px + 10 + i, py + i, 6 - i, 1);
+  if (hasNW && !hasN && !hasW)
+    for (let i = 0; i < 6; i++) ctx.fillRect(px, py + i, 6 - i, 1);
+  if (hasSE && !hasS && !hasE)
+    for (let i = 0; i < 6; i++) ctx.fillRect(px + 10 + i, py + 15 - i, 6 - i, 1);
+  if (hasSW && !hasS && !hasW)
+    for (let i = 0; i < 6; i++) ctx.fillRect(px, py + 15 - i, 6 - i, 1);
+
+  // 等级材质细节
   if (level === 1) {
-    ctx.fillStyle = "#c9b088";
-    ctx.fillRect(px + 1, py + 2, 14, 12);
-    ctx.fillStyle = "#b9a078";
-    ctx.fillRect(px + 1, py + 2, 14, 2);
-    ctx.fillRect(px + 1, py + 12, 14, 2);
     for (let i = 0; i < 3; i++) {
-      const rx = Math.floor(hash01(tx, ty, 400 + i) * 12);
-      const ry = Math.floor(hash01(ty, tx, 500 + i) * 9);
+      const rx = Math.floor(hash01(wx, wy, 400 + i) * 12);
+      const ry = Math.floor(hash01(wy, wx, 500 + i) * 9);
       ctx.fillStyle = "#d8c298";
       ctx.fillRect(px + 2 + rx, py + 4 + ry, 2, 1);
     }
   } else if (level === 2) {
-    ctx.fillStyle = "#a89878";
-    ctx.fillRect(px + 1, py + 2, 14, 12);
-    ctx.fillStyle = "#8a7a5c";
-    ctx.fillRect(px + 1, py + 2, 14, 2);
-    ctx.fillRect(px + 1, py + 12, 14, 2);
     for (let i = 0; i < 5; i++) {
-      const rx = Math.floor(hash01(tx, ty, 600 + i) * 12);
-      const ry = Math.floor(hash01(ty, tx, 700 + i) * 9);
+      const rx = Math.floor(hash01(wx, wy, 600 + i) * 12);
+      const ry = Math.floor(hash01(wy, wx, 700 + i) * 9);
       ctx.fillStyle = i % 2 ? "#8f8064" : "#bcae8c";
       ctx.fillRect(px + 2 + rx, py + 4 + ry, 2, 2);
     }
   } else if (level === 3) {
-    ctx.fillStyle = "#b4b0a4";
-    ctx.fillRect(px + 1, py + 2, 14, 12);
-    ctx.fillStyle = "#c8c4b8";
-    ctx.fillRect(px + 1, py + 2, 14, 2);
-    ctx.fillStyle = "#8f8b80";
-    ctx.fillRect(px + 1, py + 12, 14, 2);
-    ctx.fillRect(px + 7, py + 2, 1, 12);
-    ctx.fillRect(px + 1, py + 7, 14, 1);
     ctx.fillStyle = "#9d998e";
+    ctx.fillRect(px + 7, py + y0, 1, bh);
+    ctx.fillRect(px + x0, py + 7, bw, 1);
+    ctx.fillStyle = "#a8a49a";
     ctx.fillRect(px + 3, py + 4, 3, 2);
     ctx.fillRect(px + 10, py + 9, 3, 2);
   }

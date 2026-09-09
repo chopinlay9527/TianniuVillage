@@ -230,6 +230,34 @@ static void RunAudit()
     int r1 = 0, r2 = 0, r3 = 0;
     foreach (var r in game.World.Map.Roads) { if (r == 1) r1++; else if (r == 2) r2++; else if (r == 3) r3++; }
     Console.WriteLine($"道路: 土路{r1} 碎石{r2} 石板{r3}  交通条目={game.World.Traffic.Count}");
+
+    // 道路连续性：孤立格（8邻域无路）与单格缺口（两侧是路本格无路）
+    int totalRoad = r1 + r2 + r3, isolated = 0, nearMiss = 0;
+    var map = game.World.Map;
+    for (int y = 1; y < map.H - 1; y++)
+        for (int x = 1; x < map.W - 1; x++)
+        {
+            bool roadHere = map.Roads[map.Index(x, y)] > 0;
+            int roadNbrs = 0;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (map.Roads[map.Index(x + dx, y + dy)] > 0) roadNbrs++;
+                }
+            if (roadHere && roadNbrs == 0) isolated++;
+            if (!roadHere && roadNbrs >= 2
+                && ((map.Roads[map.Index(x - 1, y)] > 0 && map.Roads[map.Index(x + 1, y)] > 0)
+                 || (map.Roads[map.Index(x, y - 1)] > 0 && map.Roads[map.Index(x, y + 1)] > 0)))
+            {
+                nearMiss++;
+                string cause = game.World.BuildingAt(x, y) != null ? "建筑"
+                    : !map.IsLand(x, y) ? "水" : !map.Walkable(x, y) ? "不可走"
+                    : $"低流量{game.World.Traffic.GetValueOrDefault(map.Index(x, y))}";
+                Console.WriteLine($"   缺口({x},{y}) {cause} 地形={map.Get(x, y)}");
+            }
+        }
+    Console.WriteLine($"道路连续性: 总格数={totalRoad} 孤立格={isolated} 单格缺口={nearMiss}");
     Console.WriteLine($"科技: 已悟{game.World.Researched.Count} 当前={game.World.CurrentTech ?? "—"} 进度={game.World.ResearchProgress:F0}");
     Console.WriteLine();
     Console.WriteLine("--- 日志事件统计 ---");

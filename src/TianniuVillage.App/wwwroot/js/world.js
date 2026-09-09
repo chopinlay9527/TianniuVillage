@@ -70,7 +70,7 @@ class WorldView {
         drawTerrainTile(ctx, this.tiles[wy * this.mapW + wx], wx, wy, lx * TILE, ly * TILE);
         if (this.roadLevels) {
           const rl = this.roadLevels[wy * this.mapW + wx];
-          if (rl) drawRoad(ctx, rl, lx * TILE, ly * TILE, wx, wy);
+          if (rl) drawRoad(ctx, rl, lx * TILE, ly * TILE, wx, wy, this.roadLevels, this.mapW, this.mapH);
         }
       }
     }
@@ -89,9 +89,13 @@ class WorldView {
     for (const d of list) {
       if (d.i < 0 || d.i >= this.roadLevels.length) continue;
       this.roadLevels[d.i] = d.l;
-      const cx = Math.floor((d.i % this.mapW) / CHUNK);
-      const cy = Math.floor((d.i / this.mapW) / CHUNK);
-      dirty.add(cy * this.cx + cx);
+      // 邻接感知绘制：邻居格的外观依赖本格变化，把 3x3 邻域所在 chunk 全部标脏
+      const x = d.i % this.mapW, y = Math.floor(d.i / this.mapW);
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const ci = this.chunkIndex(x + dx, y + dy);
+          if (ci >= 0) dirty.add(ci);
+        }
     }
     for (const idx of dirty) this.redrawChunk(idx % this.cx, Math.floor(idx / this.cx));
   }

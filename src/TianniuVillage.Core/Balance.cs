@@ -68,6 +68,8 @@ public static class Balance
 
     public static readonly float[] RoadSpeedMult = [1f, 1.25f, 1.5f, 1.8f];
     public const int RoadTrafficDirt = 150;
+
+    public const int RoadDirtBridgeTraffic = 90;
     public const int RoadTrafficGravel = 900;
     public const int RoadTrafficStone = 2600;
     public const int RoadMaxFormPerHour = 3;

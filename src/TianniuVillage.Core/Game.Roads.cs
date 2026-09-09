@@ -17,12 +17,18 @@ public sealed partial class Game
         foreach (var (idx, count) in World.Traffic)
         {
             if (formed >= Balance.RoadMaxFormPerHour) break;
-            if (count < Balance.RoadTrafficDirt) continue;
             if (World.Map.Roads[idx] != 0) continue;
             int x = idx % World.Map.W, y = idx / World.Map.W;
             if (!World.Map.Walkable(x, y) || !World.Map.IsLand(x, y)) continue;
             if (World.BuildingAt(x, y) != null) continue;
             if (!IsRoadAnchored(x, y)) continue;
+
+            // 桥接：流量未满阈值但两侧都有路（分流空洞/单格缺口）时提前成路
+            bool fullTraffic = count >= Balance.RoadTrafficDirt;
+            bool bridgeGap = !fullTraffic
+                && count >= Balance.RoadDirtBridgeTraffic
+                && RoadNeighborCount(x, y) >= 2;
+            if (!fullTraffic && !bridgeGap) continue;
 
             World.Map.Roads[idx] = 1;
             World.Map.RoadWear[idx] = 0;
@@ -31,6 +37,19 @@ public sealed partial class Game
             if (formed == 1)
                 Log("被乡亲们反复踩踏的小径，渐渐踏出了一条土路", LogSeverity.Normal);
         }
+    }
+
+    private int RoadNeighborCount(int x, int y)
+    {
+        int n = 0;
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int nx = x + dx, ny = y + dy;
+                if (World.Map.InBounds(nx, ny) && World.Map.Roads[World.Map.Index(nx, ny)] > 0) n++;
+            }
+        return n;
     }
 
     private bool IsRoadAnchored(int x, int y)

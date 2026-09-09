@@ -175,4 +175,54 @@ public class RoadTests
         Assert.Equal(42, loaded.World.Map.RoadWear[loaded.World.Map.Index(cx + 1, cy)]);
         Assert.Equal(333, loaded.World.Traffic[loaded.World.Map.Index(cx + 2, cy)]);
     }
+
+    private static (int a, int gap, int b) FindLandRun(Game game)
+    {
+        var (cx, cy) = game.World.SettleCenter;
+        var map = game.World.Map;
+        for (int r = 1; r < 12; r++)
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                int y = cy + dy;
+                int x0 = cx + r;
+                bool ok = true;
+                for (int dx = 0; dx < 3; dx++)
+                {
+                    int x = x0 + dx;
+                    if (!map.InBounds(x, y) || !map.IsLand(x, y) || !map.Walkable(x, y)
+                        || game.World.BuildingAt(x, y) != null) { ok = false; break; }
+                }
+                if (ok) return (map.Index(x0, y), map.Index(x0 + 1, y), map.Index(x0 + 2, y));
+            }
+        throw new InvalidOperationException("找不到连续三格陆地");
+    }
+
+    [Fact]
+    public void BridgeRule_FillsOneTileGap()
+    {
+        var game = Game.NewGame(2024);
+        var map = game.World.Map;
+        var (a, gap, b) = FindLandRun(game);
+        map.Roads[a] = 1;
+        map.Roads[b] = 1;
+        game.World.Traffic[gap] = Balance.RoadDirtBridgeTraffic; // 低于满阈值 150
+
+        game.RunRoadPlanner();
+
+        Assert.Equal(1, map.Roads[gap]);
+    }
+
+    [Fact]
+    public void BridgeRule_NeedsTwoRoadNeighbors()
+    {
+        var game = Game.NewGame(2024);
+        var map = game.World.Map;
+        var (a, gap, b) = FindLandRun(game);
+        map.Roads[a] = 1;
+        game.World.Traffic[gap] = Balance.RoadDirtBridgeTraffic; // 只有 1 个路邻居
+
+        game.RunRoadPlanner();
+
+        Assert.Equal(0, map.Roads[gap]);
+    }
 }
