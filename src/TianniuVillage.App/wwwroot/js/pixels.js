@@ -28,19 +28,19 @@ const TerrainColors = {
 };
 
 // ===== 地形 pack 贴图系统 =====
-// 源：Ninja Adventure tileset（作者 demo 同款）。格索引 = 行主序
+// 全部使用扫描验证的 100% 全不透明整格（off-color < 12），杜绝 autotile 碎片
 const TERRAIN_PACK = {
-  0: { sheet: "Nature", idx: [385], synth: "repair" },  // 深水
-  1: { sheet: "Water", idx: [33], synth: "waterfill" }, // 浅水（纯水合成）
-  2: { sheet: "Field", idx: [1, 4, 6] },                // 沙滩
-  3: { sheet: "Village", idx: [141, 142, 201, 202, 121, 140, 200, 181] }, // 草地
-  4: { sheet: "Field", idx: [36, 31, 33, 38] },         // 森林地被（暗绿）
-  5: { sheet: "Relief", idx: [25, 28, 30, 45, 48] },    // 高地（苔岩）
-  6: { sheet: "Nature", idx: [105, 106, 176, 178] }     // 山（巨岩）
+  0: { synth: "deepwater" },                                             // 深水（程序化·Ninja深青调色板）
+  1: { synth: "shallowwater" },                                          // 浅水（程序化·Ninja浅青调色板）
+  2: { sheet: "Element", idx: [93, 94], alt: [{ sheet: "Relief", idx: [163] }] }, // 沙滩
+  3: { sheet: "Village", idx: [141, 142, 201, 202], alt: [{ sheet: "Nature", idx: [89, 90, 93, 94, 460] }] }, // 草地
+  4: { sheet: "Nature", idx: [73, 74] },                                 // 森林地被（深绿）
+  5: { sheet: "Relief", idx: [25, 28, 30, 45, 48, 50] },                 // 高地（苔岩）
+  6: { synth: "mountain" }                                               // 山（程序化·Ninja巨岩调色板）
 };
 const packCellCache = new Map();
-function packCell(sheetKey, idx, synth) {
-  const key = sheetKey + ":" + idx + ":" + (synth || "");
+function packCell(sheetKey, idx) {
+  const key = sheetKey + ":" + idx;
   if (packCellCache.has(key)) return packCellCache.get(key);
   const sheet = TileSheets[sheetKey];
   const out = mkCanvas(16, 16);
@@ -48,40 +48,73 @@ function packCell(sheetKey, idx, synth) {
   const cols = Math.floor(sheet.width / 16);
   const sx = (idx % cols) * 16, sy = Math.floor(idx / cols) * 16;
   const ctx = out.getContext("2d");
-  ctx.clearRect(0, 0, 16, 16);
   ctx.drawImage(sheet, sx, sy, 16, 16, 0, 0, 16, 16);
-  if (synth === "waterfill") {
-    // 保留上半纯净水体，镜像填满下半（消除岸边泡沫）
-    const probe = mkCanvas(16, 16);
-    const pctx = probe.getContext("2d");
-    pctx.drawImage(sheet, sx, sy, 16, 16, 0, 0, 16, 16);
-    const pd = pctx.getImageData(0, 0, 16, 16).data;
-    const top = new Uint8ClampedArray(8 * 16 * 4);
-    top.set(pd.subarray(0, 8 * 16 * 4));
-    for (let y = 0; y < 16; y++) {
-      const srcY = y < 8 ? y : 15 - y;
-      ctx.clearRect(0, y, 16, 1);
-      ctx.putImageData(new ImageData(top.slice(srcY * 64, srcY * 64 + 64), 16, 1), 0, y);
-    }
-  } else if (synth === "repair") {
-    const pd = ctx.getImageData(0, 0, 16, 16).data;
-    let r = 0, g = 0, b = 0, n = 0;
-    for (let i = 0; i < pd.length; i += 4) if (pd[i + 3] > 40) { r += pd[i]; g += pd[i + 1]; b += pd[i + 2]; n++; }
-    if (n > 0) {
-      const ar = Math.round(r / n), ag = Math.round(g / n), ab = Math.round(b / n);
-      for (let i = 0; i < pd.length; i += 4)
-        if (pd[i + 3] < 40) { pd[i] = ar; pd[i + 1] = ag; pd[i + 2] = ab; pd[i + 3] = 255; }
-      ctx.putImageData(new ImageData(pd, 16, 16), 0, 0);
-    }
-  }
   packCellCache.set(key, out);
   return out;
+}
+// 程序化合成地形（调色板取自 Ninja 素材实测值）
+const synthCache = new Map();
+function synthTerrain(kind, variant) {
+  const key = kind + ":" + variant;
+  if (synthCache.has(key)) return synthCache.get(key);
+  const c = mkCanvas(16, 16);
+  const ctx = c.getContext("2d");
+  const h = (n) => hash01(kind.length * 31 + variant, n * 17 + variant * 7, 99);
+  if (kind === "shallowwater" || kind === "deepwater") {
+    const shallow = kind === "shallowwater";
+    const base = shallow ? "#88d1da" : "#4a7886";
+    const wave = shallow ? "#6fb9c6" : "#3d6373";
+    const spark = shallow ? "#c8ecf0" : "#5d8b99";
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, 16, 16);
+    // 横向波纹（错落两道）
+    const y1 = 3 + Math.floor(h(1) * 4), y2 = 9 + Math.floor(h(2) * 4);
+    ctx.fillStyle = wave;
+    ctx.fillRect(Math.floor(h(3) * 8), y1, 5 + Math.floor(h(4) * 3), 1);
+    ctx.fillRect(Math.floor(h(5) * 8), y2, 4 + Math.floor(h(6) * 3), 1);
+    ctx.fillStyle = spark;
+    ctx.fillRect(Math.floor(h(7) * 13), Math.floor(h(8) * 13), 2, 1);
+    ctx.fillRect(Math.floor(h(9) * 14), Math.floor(h(10) * 14), 1, 1);
+  } else if (kind === "mountain") {
+    const base = "#b2a09b", crack = "#8a7772", hi = "#d8ccc8", spec = "#9c8a85";
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, 16, 16);
+    // 裂纹（两条折线向下）
+    ctx.fillStyle = crack;
+    let cx = 2 + Math.floor(h(1) * 5), cy = 0;
+    for (let s = 0; s < 5; s++) {
+      ctx.fillRect(cx, cy, 1, 2 + Math.floor(h(20 + s) * 2));
+      cx += 1 + Math.floor(h(30 + s) * 2);
+      cy += 2;
+    }
+    let cx2 = 9 + Math.floor(h(11) * 4), cy2 = 1;
+    for (let s = 0; s < 4; s++) {
+      ctx.fillRect(cx2, cy2, 1, 2);
+      cx2 -= 1 + Math.floor(h(40 + s) * 2);
+      cy2 += 3;
+    }
+    // 高光（左上边缘）
+    ctx.fillStyle = hi;
+    ctx.fillRect(0, 0, 3 + Math.floor(h(12) * 3), 1);
+    ctx.fillRect(0, 0, 1, 3 + Math.floor(h(13) * 3));
+    // 碎点
+    ctx.fillStyle = spec;
+    for (let i = 0; i < 4; i++)
+      ctx.fillRect(Math.floor(h(50 + i) * 14), Math.floor(h(60 + i) * 14), 2, 1);
+  }
+  synthCache.set(key, c);
+  return c;
 }
 function packTerrainCell(terrain, wx, wy) {
   const def = TERRAIN_PACK[terrain];
   if (!def) return null;
-  const idx = def.idx[(wx * 31 + wy * 57) % def.idx.length];
-  return packCell(def.sheet, idx, def.synth || "repair");
+  if (def.synth) return synthTerrain(def.synth, (wx * 31 + wy * 57) % 4);
+  // 主集合 + 备选集合合并采样
+  const all = [];
+  for (const i of def.idx) all.push([def.sheet, i]);
+  if (def.alt) for (const a of def.alt) for (const i of a.idx) all.push([a.sheet, i]);
+  const pick = all[(wx * 31 + wy * 57) % all.length];
+  return packCell(pick[0], pick[1]);
 }
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
@@ -126,8 +159,20 @@ function kenneyTreeCell(seed) {
   if (KenneySheet.img) {
     const ctx = out.getContext("2d");
     const tx = idx % 57, ty = Math.floor(idx / 57);
-    ctx.clearRect(0, 0, 16, 16);
     ctx.drawImage(KenneySheet.img, tx * 17, ty * 17, 16, 16, 0, 0, 16, 16);
+    // 树冠重新着色：冷绿 → Ninja 橄榄绿系（与草地 154,178,56 同族）
+    const pd = ctx.getImageData(0, 0, 16, 16);
+    const d = pd.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 40) continue;
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      if (g > r + 12 && g > b + 12) {
+        d[i] = Math.min(255, r * 0.9 + 20);
+        d[i + 1] = Math.min(255, g * 0.95);
+        d[i + 2] = b * 0.45;
+      }
+    }
+    ctx.putImageData(pd, 0, 0);
   }
   kenneyTreeCache.set(idx, out);
   return out;
@@ -135,6 +180,9 @@ function kenneyTreeCell(seed) {
 
 function drawTree(ctx, px, py, seed) {
   if (KenneySheet.img) {
+    // 落地阴影
+    ctx.fillStyle = "rgba(30,40,20,0.25)";
+    ctx.fillRect(px + 3, py + 13, 10, 2);
     ctx.drawImage(kenneyTreeCell(seed), px, py);
     return;
   }
