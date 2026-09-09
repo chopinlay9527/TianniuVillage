@@ -101,7 +101,7 @@ public sealed partial class Game
         var v = new Villager
         {
             Id = World.NextVillagerId++,
-            Name = NameGen.Next(Rng, sex),
+            Name = NameGen.Next(Rng, sex, null, UsedNames),
             Sex = sex,
             Age = Rng.NextFloat(18, 30),
             Pos = FindSpawnNear(World.SettleCenter.x, World.SettleCenter.y),

@@ -23,6 +23,7 @@ public sealed partial class Game
     public int TotalDeaths;
     public string VillageName = "甜牛村";
     public List<int> GodPlannedBuildings = [];
+    public HashSet<string> UsedNames = [];
 
     public readonly HashSet<int> ResChanged = new();
     public readonly HashSet<int> ResRemoved = new();
@@ -82,7 +83,7 @@ public sealed partial class Game
             var v = new Villager
             {
                 Id = World.NextVillagerId++,
-                Name = NameGen.Next(Rng, sex),
+                Name = "",
                 Sex = sex,
                 Age = Rng.NextFloat(18, 34),
                 Pos = FindSpawnNear(cx, cy),
@@ -96,6 +97,7 @@ public sealed partial class Game
                 v.HatedFood = foods[(Array.IndexOf(foods, v.FavoriteFood) + 1) % foods.Length];
             foreach (var key in v.Skills.Keys.ToList())
                 v.Skills[key] = Rng.NextFloat(10, 45);
+            v.Name = NameGen.Next(Rng, v.Sex, null, UsedNames);
             Villagers.Add(v);
         }
 

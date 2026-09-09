@@ -244,7 +244,57 @@ function drawResource(ctx, r, px, py) {
 
 const FW = 14, FH = 18;
 
-function makeVillagerTexture(hue, clothesColor) {
+// Ninja Adventure 角色表 → 村民贴图组装
+// 源表: 每格 16x16，列=方向(0下/1上/2左/3右)，行=帧
+// 目标: 横向帧块(每块4方向) → [idle, walkA, walkB] x [下,上,左,右]
+const CHAR_COL_BY_FACE = [3, 2, 0, 1]; // facing 0右/1左/2下/3上 → 源列
+
+function makeVillagerTexture(sex, stage, id) {
+  const key = charForVillager(sex, stage, id);
+  const sheet = CharSheets[key];
+  if (!sheet) {
+    // 回退：旧程序化纹理按新布局重组（3帧块 x 4方向, 16x16 格）
+    const legacy = makeVillagerTextureProc((id * 77) % 360, sex === 0 ? "#5a7ab8" : "#c46a8a");
+    const c = mkCanvas(16 * 4 * 3, 16);
+    const ctx = c.getContext("2d");
+    for (let f = 0; f < 3; f++) {
+      const fb = f === 2 ? 0 : f; // idle=block0, walkA=block1, walkB=block0
+      for (let face = 0; face < 4; face++) {
+        ctx.drawImage(legacy, face * 14 + fb * 56, 0, 14, 18, (f * 4 + face) * 16 + 1, 0, 14, 16);
+      }
+    }
+    return PIXI.Texture.from(c);
+  }
+
+  const rows = charRows(key);
+  const idleRow = 0;
+  const walkRows = rows <= 2 ? [0, 1] : [1, 3];
+  const frameRows = [idleRow, walkRows[0], walkRows[1]];
+
+  const c = mkCanvas(16 * 4 * 3, 16);
+  const ctx = c.getContext("2d");
+  for (let f = 0; f < 3; f++) {
+    for (let face = 0; face < 4; face++) {
+      const srcCol = CHAR_COL_BY_FACE[face];
+      const srcRow = frameRows[f];
+      // 底部对齐：计算该格不透明底行
+      let bottom = -1;
+      const probe = mkCanvas(16, 16);
+      probe.getContext("2d").drawImage(sheet, srcCol * 16, srcRow * 16, 16, 16, 0, 0, 16, 16);
+      const pd = probe.getContext("2d").getImageData(0, 0, 16, 16).data;
+      for (let y = 15; y >= 0 && bottom < 0; y--) {
+        let rowHas = false;
+        for (let x = 0; x < 16; x++) if (pd[(y * 16 + x) * 4 + 3] > 40) { rowHas = true; break; }
+        if (rowHas) bottom = y;
+      }
+      const dy = 15 - Math.max(0, bottom);
+      ctx.drawImage(sheet, srcCol * 16, srcRow * 16, 16, 16, (f * 4 + face) * 16, dy, 16, 16);
+    }
+  }
+  return PIXI.Texture.from(c);
+}
+
+function makeVillagerTextureProc(hue, clothesColor) {
   const FRAMES = 8;
   const c = mkCanvas(FW * FRAMES, FH);
   const ctx = c.getContext("2d");

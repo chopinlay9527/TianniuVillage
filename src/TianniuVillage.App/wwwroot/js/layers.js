@@ -1,6 +1,6 @@
 "use strict";
 
-const VFW = 14, VFH = 18;
+const VFW = 16, VFH = 16;
 
 const ACT_ZH = {
   0: "发呆", 1: "散步", 2: "赶路", 3: "干活", 4: "吃饭", 5: "睡觉",
@@ -55,7 +55,7 @@ class VillagerLayer {
       }
 
       if (!s) {
-        const tex = PIXI.Texture.from(makeVillagerTexture((v.id * 77) % 360, v.sex === 0 ? "#5a7ab8" : "#c46a8a"));
+        const tex = PIXI.Texture.from(makeVillagerTexture(v.sex, v.stage, v.id));
         s = new PIXI.Sprite(tex);
         s.anchor.set(0.5, 1);
         s.roundPixels = false;
@@ -158,7 +158,9 @@ class VillagerLayer {
 
         if (s.texture) {
           const dir = s._dir || 0;
-          s.texture.frame = new PIXI.Rectangle(dir * VFW + frame * VFW * 4, 0, VFW, VFH);
+          // 帧块布局: [idle][walkA][walkB] 每块 4 方向；行走交替 walkA/walkB
+          const fBlock = 1 + frame;
+          s.texture.frame = new PIXI.Rectangle(dir * VFW + fBlock * VFW * 4, 0, VFW, VFH);
           s.texture.update();
         }
       } else {

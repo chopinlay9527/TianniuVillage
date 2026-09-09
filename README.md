@@ -113,10 +113,15 @@ TianniuVillage/
 | 宿主 | WinForms + WebView2 |
 | 前端渲染 | PixiJS (WebGL) |
 | 光照 | 自定义 GLSL Fragment Shader |
-| 美术 | 程序化像素画（Canvas 2D 生成） |
+| 美术 | 村民：Ninja Adventure 素材包（CC0）16×16 四向行走动画；地形/建筑：程序化像素画（Canvas 2D 生成） |
 | 测试 | xUnit |
 | 存档 | System.Text.Json |
 
+## 🎨 素材来源
+
+- **Ninja Adventure Asset Pack**（村民角色贴图）— 作者 [pixel-boy](https://pixel-boy.itch.io/ninja-adventure-asset-pack)，[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 公有领域，可自由使用无需署名。素材取自 `MarioLDD/Kuroshiro-adventure`（GitHub）vendor 副本，原样复制至 `wwwroot/assets/char/`。
+- 其余美术（地形、道路、建筑、动物）为本项目运行时程序化生成。
+
 ## 📜 许可
 
-MIT License
+MIT License（游戏代码；素材遵循各自许可）

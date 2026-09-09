@@ -43,6 +43,7 @@ public sealed class SaveData
     public MerchantVisit? Merchant;
     public int LastFestivalDay;
     public int LastMerchantDay;
+    public List<string> UsedNames = [];
 }
 
 public static class SaveService
@@ -101,7 +102,8 @@ public static class SaveService
             CurrentFestival = game.CurrentFestival,
             Merchant = game.Merchant,
             LastFestivalDay = game.LastFestivalDay,
-            LastMerchantDay = game.LastMerchantDay
+            LastMerchantDay = game.LastMerchantDay,
+            UsedNames = game.UsedNames.ToList()
         };
 
         var dir = Path.GetDirectoryName(path);
@@ -181,6 +183,9 @@ public static class SaveService
         game.Merchant = data.Merchant;
         game.LastFestivalDay = data.LastFestivalDay == 0 ? -100 : data.LastFestivalDay;
         game.LastMerchantDay = data.LastMerchantDay == 0 ? -100 : data.LastMerchantDay;
+        game.UsedNames = data.UsedNames != null && data.UsedNames.Count > 0
+            ? new HashSet<string>(data.UsedNames)
+            : new HashSet<string>(data.Villagers.Select(v => v.Name));
         return game;
     }
 }

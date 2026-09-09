@@ -111,10 +111,12 @@ public sealed partial class Game
     private void GiveBirth(Villager v)
     {
         var sex = Rng.Chance(0.5f) ? Sex.Male : Sex.Female;
+        var father = Villagers.FirstOrDefault(o => o.Id == v.SpouseId);
+        string? family = father != null && father.Name.Length > 0 ? father.Name[..1] : null;
         var baby = new Villager
         {
             Id = World.NextVillagerId++,
-            Name = NameGen.Next(Rng, sex),
+            Name = NameGen.Next(Rng, sex, family, UsedNames),
             Sex = sex,
             Age = 0f,
             Pos = v.Pos,
@@ -128,7 +130,6 @@ public sealed partial class Game
         v.ChildrenIds.Add(baby.Id);
         v.PostpartumDays = Balance.PostpartumRestDays;
         TotalBirths++;
-        var father = Villagers.FirstOrDefault(o => o.Id == v.SpouseId);
         if (father != null) father.ChildrenIds.Add(baby.Id);
         Log($"{v.Name}顺利诞下{(sex == Sex.Male ? "男" : "女")}婴{baby.Name}，全村都来道贺", LogSeverity.Important);
         v.AddMood("新生命降生", 12f, 72f);
@@ -208,7 +209,7 @@ public sealed partial class Game
             var v = new Villager
             {
                 Id = World.NextVillagerId++,
-                Name = NameGen.Next(Rng, sex),
+                Name = NameGen.Next(Rng, sex, null, UsedNames),
                 Sex = sex,
                 Age = Rng.NextFloat(18, 30),
                 Pos = FindSpawnNear(World.SettleCenter.x, World.SettleCenter.y),

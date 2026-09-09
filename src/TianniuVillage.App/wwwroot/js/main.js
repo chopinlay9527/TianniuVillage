@@ -67,6 +67,7 @@ window.addEventListener("load", () => {
 
   UI.init();
   setupInput();
+  loadCharSheets(); // 预加载角色素材（onInit 会等待完成）
   connectHost();
 
   window.addEventListener("resize", () => {
@@ -97,7 +98,8 @@ function connectHost() {
   window.chrome.webview.postMessage(JSON.stringify({ type: "ready" }));
 }
 
-function onInit(msg) {
+async function onInit(msg) {
+  if (Object.keys(CharSheets).length === 0) await loadCharSheets();
   lastLogSeq = Math.max(0, ...(msg.logs || []).map(l => l.seq));
   gameView.buildFromInit(msg);
   const vc = msg.buildings.find(b => b.k === "villagecenter");
