@@ -657,7 +657,9 @@ function rgbaFromHex(hex, alpha) {
 
 function makeBuildingTexture(key, state) {
   const s = BuildingStyle[key] || BuildingStyle.house;
-  const W = s.w * TILE, H = s.h * TILE;
+  // 建筑纹理统一在 16px 基准网格绘制（坐标均为 16 时代参数），
+  // 由 BuildingLayer 精灵 scale=2 呈现为 32px/格，避免 TILE=32 双倍错位
+  const W = s.w * LEGACY, H = s.h * LEGACY;
   const c = mkCanvas(W, H);
   const ctx = c.getContext("2d");
 
@@ -719,7 +721,7 @@ function makeBuildingTexture(key, state) {
       for (let ty = 0; ty < s.h; ty++)
         for (let tx = 0; tx < s.w; tx++) {
           const id = soil[(tx + ty * 3) % soil.length];
-          ctx.drawImage(lpcCell(id), tx * TILE, ty * TILE);
+          ctx.drawImage(lpcCell(id), tx * LEGACY, ty * LEGACY);
         }
       ctx.fillStyle = "rgba(70,45,25,0.45)";
       for (let y = 4; y < H; y += 8) ctx.fillRect(0, y, W, 2);
@@ -759,14 +761,14 @@ function makeBuildingTexture(key, state) {
     const roofC = atlasCell(TEX.building.roof);
     for (let ty = 0; ty < s.h; ty++)
       for (let tx = 0; tx < s.w; tx++)
-        ctx.drawImage(wallC, 0, 0, TILE, TILE, tx * TILE, ty * TILE, TILE, TILE);
+        ctx.drawImage(wallC, 0, 0, LEGACY, LEGACY, tx * LEGACY, ty * LEGACY, LEGACY, LEGACY);
     ctx.fillStyle = rgbaFromHex(s.wall, 0.45);
     ctx.fillRect(0, 0, W, H);
-    const roofPx = s.h === 1 ? 7 : Math.max(TILE, Math.round(H * 0.45));
-    for (let y = 0; y < roofPx; y += TILE)
-      for (let x = 0; x < W; x += TILE) {
-        const hh = Math.min(TILE, roofPx - y);
-        ctx.drawImage(roofC, 0, 0, TILE, hh, x, y, TILE, hh);
+    const roofPx = s.h === 1 ? 7 : Math.max(LEGACY, Math.round(H * 0.45));
+    for (let y = 0; y < roofPx; y += LEGACY)
+      for (let x = 0; x < W; x += LEGACY) {
+        const hh = Math.min(LEGACY, roofPx - y);
+        ctx.drawImage(roofC, 0, 0, LEGACY, hh, x, y, LEGACY, hh);
       }
     ctx.fillStyle = rgbaFromHex(s.roof, 0.5);
     ctx.fillRect(0, 0, W, roofPx);
