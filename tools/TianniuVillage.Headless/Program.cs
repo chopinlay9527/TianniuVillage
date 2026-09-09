@@ -34,6 +34,51 @@ if (args.Length > 0 && args[0] == "events")
     return;
 }
 
+if (args.Length > 0 && args[0] == "window")
+{
+    int fromDay = int.Parse(args[1]);
+    int toDay = int.Parse(args[2]);
+    var wg = Game.NewGame(20260908);
+    int wTotal = toDay * Balance.MinutesPerDay;
+    int wSeq = 0;
+    for (int i = 0; i < wTotal; i++)
+    {
+        wg.Step();
+        if (wg.Day >= fromDay)
+            foreach (var l in wg.Logs.Where(l => l.Seq > wSeq))
+            {
+                wSeq = Math.Max(wSeq, l.Seq);
+                Console.WriteLine($"d{wg.Day} [{l.TimeZh}] {l.Text}");
+            }
+        if (wSeq == 0) foreach (var l in wg.Logs) wSeq = Math.Max(wSeq, l.Seq);
+    }
+    return;
+}
+
+if (args.Length > 0 && args[0] == "deaths")
+{
+    int dSeed = args.Length > 1 && int.TryParse(args[1], out var ds) ? ds : 20260908;
+    int dYears = args.Length > 2 && int.TryParse(args[2], out var dy) ? dy : 5;
+    var dg = Game.NewGame(dSeed);
+    int dTotal = dYears * 4 * Balance.DaysPerSeason * Balance.MinutesPerDay;
+    int dSeq = 0;
+    for (int i = 0; i < dTotal; i++)
+    {
+        dg.Step();
+        foreach (var l in dg.Logs.Where(l => l.Seq > dSeq))
+        {
+            dSeq = Math.Max(dSeq, l.Seq);
+            if (l.Text.Contains("倒下") || l.Text.Contains("冻死") || l.Text.Contains("殉职") ||
+                l.Text.Contains("不治") || l.Text.Contains("狼") || l.Text.Contains("骨折") ||
+                l.Text.Contains("划伤") || l.Text.Contains("精神崩溃") || l.Text.Contains("病倒") ||
+                l.Text.Contains("传染") || l.Text.Contains("享年"))
+                Console.WriteLine($"d{dg.Day} [{l.TimeZh}] {l.Text}");
+        }
+    }
+    Console.WriteLine($"--- pop={dg.Villagers.Count(v => v.Alive)} births={dg.TotalBirths} deaths={dg.TotalDeaths}");
+    return;
+}
+
 if (args.Length > 0 && args[0] == "audit")
 {
     RunAudit();

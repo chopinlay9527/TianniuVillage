@@ -303,8 +303,7 @@ public sealed partial class Game
             _ => 1f
         };
         float mentalF = v.MentalBreaking ? 0.3f : 1f;
-        float festivalF = CurrentFestival != null ? 0.5f : 1f;
-        return skillF * staminaF * moodF * ageF * weatherF * techF * toolF * injuryF * mentalF * festivalF;
+        return skillF * staminaF * moodF * ageF * weatherF * techF * toolF * injuryF * mentalF;
     }
 
     private int JobMinutes(Job job, Villager v)
@@ -363,6 +362,9 @@ public sealed partial class Game
         SetSelfTask(v, null, null);
         v.DecisionCooldown = 2;
         v.LearnSkill(job.SkillKey, 0.5f);
+
+        if (job.Kind is JobKind.Fell or JobKind.Mine or JobKind.MineOre or JobKind.Plow or JobKind.Harvest)
+            WearTool(v);
 
         switch (job.Kind)
         {

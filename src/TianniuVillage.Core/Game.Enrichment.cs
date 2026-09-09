@@ -49,6 +49,7 @@ public sealed partial class Game
         ContagionTick();
         InjuryRecovery();
         MentalBreakTick();
+        ApplyBuildingEffects();
     }
 
     private void UpdateRoles()
@@ -139,9 +140,9 @@ public sealed partial class Game
         LastMerchantDay = Day;
         var offers = new List<(string, int, string, int)>();
         var stock = World.Stock;
-        if (stock.GetValueOrDefault("berries") > 50) offers.Add(("berries", 30, "stone", 20));
         if (stock.GetValueOrDefault("log") > 30) offers.Add(("log", 20, "grain", 15));
         if (stock.GetValueOrDefault("plank") > 20) offers.Add(("plank", 10, "herb", 5));
+        if (stock.GetValueOrDefault("berries") > 60) offers.Add(("berries", 40, "iron_tool", 1));
         if (offers.Count > 0)
         {
             Merchant = new MerchantVisit
@@ -208,7 +209,7 @@ public sealed partial class Game
     {
         foreach (var v in Villagers.Where(v => v.Alive && v.Injury != InjuryType.None))
         {
-            v.InjuryDaysLeft -= 1f / 24f;
+            v.InjuryDaysLeft -= 1f;
             if (v.InjuryDaysLeft <= 0)
             {
                 string zh = v.Injury == InjuryType.Fracture ? "骨折" : "伤口";
@@ -255,7 +256,7 @@ public sealed partial class Game
     {
         foreach (var b in World.Buildings.Where(b => b.State == BuildingState.Complete))
         {
-            if (b.Key == "quarry" && Tick % 1440 == 0)
+            if (b.Key == "quarry" && Tick % 1440 == 0 && World.CountItem("stone") < 60)
             {
                 World.AddItem("stone", Balance.QuarryDailyStone);
                 if (Rng.Chance(0.1f)) Log("采石场开采出了一批石料", LogSeverity.Normal);
@@ -263,24 +264,15 @@ public sealed partial class Game
         }
     }
 
-    public float GetToolEfficiency(Villager v, Job job)
+    private void WearTool(Villager v)
     {
-        if (job.Kind is not (JobKind.Fell or JobKind.Mine or JobKind.MineOre or JobKind.Plow or JobKind.Harvest))
-            return 1f;
-
-        if (World.TryTakeItem("iron_tool", 1))
+        if (Rng.Chance(Balance.ToolWearChance))
         {
-            World.AddItem("iron_tool_scratch", 0);
-            World.Stock.Remove("iron_tool_scratch");
-            v.ToolDurabilityLeft = Balance.IronToolDurability;
-            return Balance.IronToolEfficiency;
+            if (World.CountItem("iron_tool") > 0 && World.TryTakeItem("iron_tool", 1))
+                Log($"{v.Name}的铁制工具磨损报废了", LogSeverity.Normal);
+            else if (World.CountItem("copper_tool") > 0 && World.TryTakeItem("copper_tool", 1))
+                Log($"{v.Name}的铜制工具磨损报废了", LogSeverity.Normal);
         }
-        if (World.TryTakeItem("copper_tool", 1))
-        {
-            v.ToolDurabilityLeft = Balance.CopperToolDurability;
-            return Balance.CopperToolEfficiency;
-        }
-        return Balance.NoToolEfficiency;
     }
 
     public void TickMerchant()

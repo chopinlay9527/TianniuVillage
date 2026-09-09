@@ -108,7 +108,9 @@ public static class Balance
     public const int CraftWorkMinutes = 45;
     public const int CopperToolDurability = 40;
     public const int IronToolDurability = 80;
-    public const float NoToolEfficiency = 0.7f;
+    public const float NoToolEfficiency = 1.0f;
+
+    public const float ToolWearChance = 0.03f;
     public const float CopperToolEfficiency = 1.25f;
     public const float IronToolEfficiency = 1.5f;
 

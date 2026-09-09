@@ -100,34 +100,34 @@ public sealed partial class Game
         }
 
         var well = World.BuildingsOf("well").FirstOrDefault();
-        (int x, int y) spot;
-        float restore;
-        if (well != null)
-        {
-            spot = World.DoorOf(well);
-            restore = Balance.DrinkRestoreWell;
-        }
-        else
-        {
-            ResourceNode? best = null;
-            float bestDist = float.MaxValue;
-            foreach (var node in World.Resources.Values)
-            {
-                if (node.Kind != ResKind.WaterSpot || !World.Map.Walkable(node.X, node.Y)) continue;
-                float d = Dist2(v.Pos, (node.X, node.Y));
-                if (d < bestDist) { bestDist = d; best = node; }
-            }
-            if (best == null) { v.DecisionCooldown = 30; return; }
-            spot = ResourceWorkSpotPublic(best);
-            restore = Balance.DrinkRestoreWild;
-        }
+        if (well != null && TryWalkToDrink(v, World.DoorOf(well), Balance.DrinkRestoreWell))
+            return;
 
+        ResourceNode? best = null;
+        float bestDist = float.MaxValue;
+        foreach (var node in World.Resources.Values)
+        {
+            if (node.Kind != ResKind.WaterSpot || !World.Map.Walkable(node.X, node.Y)) continue;
+            float d = Dist2(v.Pos, (node.X, node.Y));
+            if (d < bestDist) { bestDist = d; best = node; }
+        }
+        if (best == null || !TryWalkToDrink(v, ResourceWorkSpotPublic(best), Balance.DrinkRestoreWild))
+        {
+            if (well == null)
+                Log($"{v.Name}找不到可以取水的地方", LogSeverity.Important);
+            v.DecisionCooldown = 30;
+        }
+    }
+
+    private bool TryWalkToDrink(Villager v, (int x, int y) spot, float restore)
+    {
         v.CurrentJobId = null;
         v.Activity = VillagerActivity.WalkingToJob;
         v.Path = PathFinder.Find(World.Map, v.Pos.x, v.Pos.y, spot.x, spot.y);
+        if (v.Path == null) { v.Activity = VillagerActivity.Idle; return false; }
         SetSelfTask(v, "drinking", restore.ToString());
         v.DecisionCooldown = 45;
-        if (v.Path == null) { v.Activity = VillagerActivity.Idle; SetSelfTask(v, null, null); }
+        return true;
     }
 
     private void FinishDrinking(Villager v)
