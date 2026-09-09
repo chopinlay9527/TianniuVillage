@@ -27,7 +27,77 @@ const TerrainColors = {
   6: ["#6b6e60", "#5f6255", "#74776a"]   // 山
 };
 
+// ===== 地形 pack 贴图系统 =====
+// 源：Ninja Adventure tileset（作者 demo 同款）。格索引 = 行主序
+const TERRAIN_PACK = {
+  0: { sheet: "Nature", idx: [385], synth: "repair" },  // 深水
+  1: { sheet: "Water", idx: [33], synth: "waterfill" }, // 浅水（纯水合成）
+  2: { sheet: "Field", idx: [1, 4, 6] },                // 沙滩
+  3: { sheet: "Village", idx: [141, 142, 201, 202, 121, 140, 200, 181] }, // 草地
+  4: { sheet: "Field", idx: [36, 31, 33, 38] },         // 森林地被（暗绿）
+  5: { sheet: "Relief", idx: [25, 28, 30, 45, 48] },    // 高地（苔岩）
+  6: { sheet: "Nature", idx: [105, 106, 176, 178] }     // 山（巨岩）
+};
+const packCellCache = new Map();
+function packCell(sheetKey, idx, synth) {
+  const key = sheetKey + ":" + idx + ":" + (synth || "");
+  if (packCellCache.has(key)) return packCellCache.get(key);
+  const sheet = TileSheets[sheetKey];
+  const out = mkCanvas(16, 16);
+  if (!sheet) { packCellCache.set(key, out); return out; }
+  const cols = Math.floor(sheet.width / 16);
+  const sx = (idx % cols) * 16, sy = Math.floor(idx / cols) * 16;
+  const ctx = out.getContext("2d");
+  ctx.clearRect(0, 0, 16, 16);
+  ctx.drawImage(sheet, sx, sy, 16, 16, 0, 0, 16, 16);
+  if (synth === "waterfill") {
+    // 保留上半纯净水体，镜像填满下半（消除岸边泡沫）
+    const probe = mkCanvas(16, 16);
+    const pctx = probe.getContext("2d");
+    pctx.drawImage(sheet, sx, sy, 16, 16, 0, 0, 16, 16);
+    const pd = pctx.getImageData(0, 0, 16, 16).data;
+    const top = new Uint8ClampedArray(8 * 16 * 4);
+    top.set(pd.subarray(0, 8 * 16 * 4));
+    for (let y = 0; y < 16; y++) {
+      const srcY = y < 8 ? y : 15 - y;
+      ctx.clearRect(0, y, 16, 1);
+      ctx.putImageData(new ImageData(top.slice(srcY * 64, srcY * 64 + 64), 16, 1), 0, y);
+    }
+  } else if (synth === "repair") {
+    const pd = ctx.getImageData(0, 0, 16, 16).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < pd.length; i += 4) if (pd[i + 3] > 40) { r += pd[i]; g += pd[i + 1]; b += pd[i + 2]; n++; }
+    if (n > 0) {
+      const ar = Math.round(r / n), ag = Math.round(g / n), ab = Math.round(b / n);
+      for (let i = 0; i < pd.length; i += 4)
+        if (pd[i + 3] < 40) { pd[i] = ar; pd[i + 1] = ag; pd[i + 2] = ab; pd[i + 3] = 255; }
+      ctx.putImageData(new ImageData(pd, 16, 16), 0, 0);
+    }
+  }
+  packCellCache.set(key, out);
+  return out;
+}
+function packTerrainCell(terrain, wx, wy) {
+  const def = TERRAIN_PACK[terrain];
+  if (!def) return null;
+  const idx = def.idx[(wx * 31 + wy * 57) % def.idx.length];
+  return packCell(def.sheet, idx, def.synth || "repair");
+}
+
 function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
+  // 若有 pack 素材则整铺源格；仅当对应源缺失时回退程序化
+  if (TileSheets && TERRAIN_PACK[terrain] && packTerrainCell(terrain, tx, ty)) {
+    ctx.drawImage(packTerrainCell(terrain, tx, ty), px, py);
+    // 微噪声叠加，保留手绘纹理感
+    for (let i = 0; i < 4; i++) {
+      const rx = Math.floor(hash01(tx, ty, 300 + i) * 16);
+      const ry = Math.floor(hash01(ty, tx, 600 + i) * 16);
+      const v = hash01(tx * 7 + ry, ty * 13 + rx, 11);
+      ctx.fillStyle = v < 0.5 ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+      ctx.fillRect(px + rx, py + ry, 1, 1);
+    }
+    return;
+  }
   const pal = TerrainColors[terrain] || TerrainColors[3];
   for (let y = 0; y < TILE; y++) {
     for (let x = 0; x < TILE; x++) {
@@ -46,7 +116,28 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
   }
 }
 
+// Kenney Roguelike 树的 16x16 格（行主序 = ty*57+tx；4 变体含果子树）
+const KENNEY_TREES = [9 * 57 + 13, 9 * 57 + 15, 11 * 57 + 13, 11 * 57 + 23, 11 * 57 + 16];
+const kenneyTreeCache = new Map();
+function kenneyTreeCell(seed) {
+  const idx = KENNEY_TREES[seed % KENNEY_TREES.length];
+  if (kenneyTreeCache.has(idx)) return kenneyTreeCache.get(idx);
+  const out = mkCanvas(16, 16);
+  if (KenneySheet.img) {
+    const ctx = out.getContext("2d");
+    const tx = idx % 57, ty = Math.floor(idx / 57);
+    ctx.clearRect(0, 0, 16, 16);
+    ctx.drawImage(KenneySheet.img, tx * 17, ty * 17, 16, 16, 0, 0, 16, 16);
+  }
+  kenneyTreeCache.set(idx, out);
+  return out;
+}
+
 function drawTree(ctx, px, py, seed) {
+  if (KenneySheet.img) {
+    ctx.drawImage(kenneyTreeCell(seed), px, py);
+    return;
+  }
   const trunkX = px + 7;
   ctx.fillStyle = "#6b4a2c";
   ctx.fillRect(trunkX, py + 10, 2, 5);
