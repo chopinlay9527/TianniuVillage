@@ -62,6 +62,7 @@ public sealed partial class Game
         {
             foreach (var v in Villagers.Where(x => x.Alive && x.Role == VillageRole.Elder)) v.Role = VillageRole.None;
             elder.Role = VillageRole.Elder;
+            elder.Reputation += 5;
             Log($"{elder.Name}被推举为村中长老", LogSeverity.Normal);
         }
 
@@ -69,6 +70,7 @@ public sealed partial class Game
         if (hunter != null && hunter.SkillOf("hunting") > 50 && hunter.Role == VillageRole.None)
         {
             hunter.Role = VillageRole.HuntChief;
+            hunter.Reputation += 5;
             Log($"{hunter.Name}成为猎队队长", LogSeverity.Normal);
         }
 
@@ -76,6 +78,7 @@ public sealed partial class Game
         if (healer != null && healer.SkillOf("medicine") > 50 && healer.Role == VillageRole.None)
         {
             healer.Role = VillageRole.Healer;
+            healer.Reputation += 5;
             Log($"{healer.Name}被尊为村中医师", LogSeverity.Normal);
         }
     }

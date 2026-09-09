@@ -168,6 +168,16 @@ public sealed partial class Game
                 Jobs.Add(World, JobKind.Weave, 84, spot.x, spot.y, buildingId: wv.Id);
             }
         }
+        // 毛皮大衣：秋季皮毛富余时缝制（可当冬衣）
+        if (World.BuildingsOf("weaver").Any() && Season == Season.Autumn &&
+            World.CountItem("hide") >= 3 &&
+            World.CountItem("clothes") + World.CountItem("hide_coat") < Villagers.Count(v => v.Alive) + 2 &&
+            Jobs.ClaimedCount(JobKind.Weave) + Jobs.OpenCount(JobKind.Weave) < 1)
+        {
+            var wv2 = World.BuildingsOf("weaver").First();
+            var spot2 = World.DoorOf(wv2);
+            Jobs.Add(World, JobKind.Weave, 86, spot2.x, spot2.y, buildingId: wv2.Id, itemId: "hide_coat");
+        }
         if (World.BuildingsOf("weaver").Any() && Season == Season.Autumn &&
             World.CountItem("clothes") < Villagers.Count(v => v.Alive))
         {
@@ -213,15 +223,30 @@ public sealed partial class Game
     private void PostCookJob(int pop, bool hasCook)
     {
         if (!hasCook) return;
-        int mealTarget = pop * 3;
-        if (World.CountItem("meal") >= mealTarget) return;
-        if (World.CountItem("grain") < 1) return;
-        if (!new[] { "berries", "fish", "meat", "mushroom" }.Any(p => World.CountItem(p) >= 2)) return;
         if (Jobs.ClaimedCount(JobKind.Cook) + Jobs.OpenCount(JobKind.Cook) >= 1) return;
-
         var cook = World.BuildingsOf("cookhouse").First();
-        var spot = World.DoorOf(cook);
-        Jobs.Add(World, JobKind.Cook, 85, spot.x, spot.y, buildingId: cook.Id);
+
+        // 主食谱：熟食
+        if (World.CountItem("meal") < pop * 3 && World.CountItem("grain") >= 1 &&
+            new[] { "berries", "fish", "meat", "mushroom" }.Any(p => World.CountItem(p) >= 2))
+        {
+            var spot = World.DoorOf(cook);
+            Jobs.Add(World, JobKind.Cook, 85, spot.x, spot.y, buildingId: cook.Id);
+            return;
+        }
+        // 奶酪：牛奶富余时（高价值食品）
+        if (World.CountItem("milk") >= 6)
+        {
+            var spot = World.DoorOf(cook);
+            Jobs.Add(World, JobKind.Cook, 80, spot.x, spot.y, buildingId: cook.Id, itemId: "cheese");
+            return;
+        }
+        // 肉干：生肉富余时（永不腐坏）
+        if (World.CountItem("meat") >= 8 && World.CountItem("log") >= 1)
+        {
+            var spot = World.DoorOf(cook);
+            Jobs.Add(World, JobKind.Cook, 78, spot.x, spot.y, buildingId: cook.Id, itemId: "jerky");
+        }
     }
 
     private void PostBuildingMaterialJobs()
@@ -511,6 +536,13 @@ public sealed partial class Game
                 if (World.CountItem(item) < count) { LastBuildFail = $"{key}:lack-{item}"; return false; }
         }
 
+        // 连通性守卫：建筑建成后不得切断村中心与任何现有建筑门口的路径
+        if (key != "farm" && !SiteKeepsVillageConnected(site.Value.x, site.Value.y, def.W, def.H))
+        {
+            LastBuildFail = $"{key}:would-cut";
+            return false;
+        }
+
         var b = new Building
         {
             Id = World.NextBuildingId++,
@@ -528,6 +560,51 @@ public sealed partial class Game
         Log($"{reason}。村民们在村边选好了新{def.NameZh}的位置，需要的材料会陆续搬过去。", LogSeverity.Important);
         _pendingBuildSites.Add((b.X, b.Y));
         LastBuildFail = "";
+        return true;
+    }
+
+    // 候选建筑落成（视为阻挡）后，从村中心 BFS（镜像寻路规则：对角需两侧正交可走），
+    // 验证所有非废墟建筑的门口仍可达。防止"建好即围死"的灭村事故。
+    private bool SiteKeepsVillageConnected(int cx0, int cy0, int cw, int ch)
+    {
+        var map = World.Map;
+        bool InCand(int x, int y) => x >= cx0 && x < cx0 + cw && y >= cy0 && y < cy0 + ch;
+        bool Pass(int x, int y) => map.InBounds(x, y) && map.Walkable(x, y) && !map.Blocked[map.Index(x, y)] && !InCand(x, y);
+
+        var center = World.Buildings.FirstOrDefault(b => b.Key == "villagecenter" && b.State != BuildingState.Ruined);
+        var start = center != null ? World.DoorOf(center) : World.SettleCenter;
+        if (!Pass(start.x, start.y)) return false;
+
+        var visited = new bool[map.W * map.H];
+        var queue = new Queue<(int x, int y)>();
+        visited[map.Index(start.x, start.y)] = true;
+        queue.Enqueue(start);
+        while (queue.Count > 0)
+        {
+            var (x, y) = queue.Dequeue();
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    int nx = x + dx, ny = y + dy;
+                    if (!Pass(nx, ny)) continue;
+                    int ni = map.Index(nx, ny);
+                    if (visited[ni]) continue;
+                    // 与 PathFinder 一致：对角移动需两侧正交格均可走
+                    if (dx != 0 && dy != 0 && !(Pass(x + dx, y) && Pass(x, y + dy))) continue;
+                    visited[ni] = true;
+                    queue.Enqueue((nx, ny));
+                }
+        }
+
+        foreach (var b in World.Buildings)
+        {
+            if (b.State == BuildingState.Ruined) continue;
+            var door = World.DoorOf(b);
+            if (InCand(door.x, door.y)) return false; // 门正好落在候选地基上
+            if (!Pass(door.x, door.y)) continue;      // 门本身处于阻挡格（如贴山），无法判断则跳过
+            if (!visited[map.Index(door.x, door.y)]) return false;
+        }
         return true;
     }
 

@@ -163,13 +163,19 @@ function drawBush(ctx, px, py, hasBerries) {
   }
 }
 
-function drawMushroom(ctx, px, py) {
-  const c = TEX.mushroom || {};
-  ctx.fillStyle = c.stem || "#e8ddc8";
+function drawMushroom(ctx, px, py, seed) {
+  const m = TEX.mushroom || {};
+  if (m.tiles && m.tiles.length && Atlas.img) {
+    ctx.fillStyle = "rgba(30,60,25,0.2)";
+    ctx.fillRect(px + 4, py + 13, 8, 2);
+    ctx.drawImage(atlasCell(m.tiles[(seed || 0) % m.tiles.length]), px, py);
+    return;
+  }
+  ctx.fillStyle = m.stem || "#e8ddc8";
   ctx.fillRect(px + 6, py + 11, 3, 3);
-  ctx.fillStyle = c.cap || "#b8503c";
+  ctx.fillStyle = m.cap || "#b8503c";
   ctx.fillRect(px + 4, py + 8, 7, 3);
-  ctx.fillStyle = c.dot || "#e8ddc8";
+  ctx.fillStyle = m.dot || "#e8ddc8";
   ctx.fillRect(px + 6, py + 8, 1, 1);
   ctx.fillRect(px + 9, py + 9, 1, 1);
 }
@@ -296,7 +302,7 @@ function drawResource(ctx, r, px, py) {
   switch (r.k) {
     case ResKind.Tree: drawTree(ctx, px, py, r.id); break;
     case ResKind.BerryBush: drawBush(ctx, px, py, r.berries); break;
-    case ResKind.Mushroom: drawMushroom(ctx, px, py); break;
+    case ResKind.Mushroom: drawMushroom(ctx, px, py, r.id); break;
     case ResKind.Stone: drawStone(ctx, px, py, r.id); break;
     case ResKind.Herb: drawHerb(ctx, px, py); break;
     case ResKind.FlaxPatch:

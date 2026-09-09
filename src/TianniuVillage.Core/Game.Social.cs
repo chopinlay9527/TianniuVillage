@@ -87,12 +87,17 @@ public sealed partial class Game
         if (a.Stage != AgeStage.Adult || b.Stage != AgeStage.Adult) return;
         if (a.SpouseId != 0 || b.SpouseId != 0) return;
         if (a.Sex == b.Sex) return;
-        if (a.Friendships.GetValueOrDefault(b.Id) < 55f) return;
+        // 声望高的人更受青睐：择偶好感门槛随双方声望降低（最多 -12）
+        float required = 55f - Math.Min(12f, (a.Reputation + b.Reputation) * 0.2f);
+        if (a.Friendships.GetValueOrDefault(b.Id) < required) return;
 
         var sharedHome = World.Buildings.FirstOrDefault(x => x.Id == a.HomeId && x.Id == b.HomeId && x.State == BuildingState.Complete)
             ?? World.Buildings.FirstOrDefault(x => x.Id == a.HomeId && x.State == BuildingState.Complete && x.Occupants < x.Beds)
             ?? World.Buildings.FirstOrDefault(x => x.Id == b.HomeId && x.State == BuildingState.Complete && x.Occupants < x.Beds);
         if (sharedHome == null) return;
+
+        a.Reputation += 2;
+        b.Reputation += 2;
 
         a.SpouseId = b.Id;
         b.SpouseId = a.Id;

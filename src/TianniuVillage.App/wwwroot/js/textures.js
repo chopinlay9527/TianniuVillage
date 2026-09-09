@@ -58,7 +58,8 @@ const TEX = {
   },
 
   // ---------- 其余资源（程序化配色）----------
-  mushroom: { stem: "#e8ddc8", cap: "#b8503c", dot: "#e8ddc8" },
+  mushroom: { tiles: ["t83", "t95"],          // 蘑菇（两变体；留空 [] 则用下面的程序化配色）
+              stem: "#e8ddc8", cap: "#b8503c", dot: "#e8ddc8" },
   stone:    { base: "#8a8d80", light: "#9da093", dark: "#767970" },
   copperVein: { rock: "#8a7a5c", ore: "#c4854a", oreLight: "#e0a050" },  // 铜矿
   ironVein:   { rock: "#8a7a5c", ore: "#8a9aaa", oreLight: "#b0c0d0" },  // 铁矿

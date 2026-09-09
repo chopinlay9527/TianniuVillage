@@ -28,7 +28,7 @@ public sealed partial class Game
             foreach (var v in Villagers)
             {
                 if (!v.Alive) continue;
-                if (World.TryTakeItem("clothes", 1) || (HasTech("boneneedle") && Rng.Chance(0.5f)))
+                if (World.TryTakeItem("clothes", 1) || World.TryTakeItem("hide_coat", 1) || (HasTech("boneneedle") && Rng.Chance(0.5f)))
                     v.WinterClothes = true;
                 else { v.WinterClothes = false; unprepared++; }
             }

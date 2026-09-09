@@ -2,7 +2,7 @@ namespace TianniuVillage.Core;
 
 public sealed partial class Game
 {
-    private static readonly string[] FoodPreference = ["meal", "berries", "fish", "meat", "mushroom", "grain"];
+    private static readonly string[] FoodPreference = ["meal", "cheese", "berries", "fish", "meat", "mushroom", "grain", "jerky"];
 
     private void UpdateNeeds(Villager v)
     {

@@ -48,7 +48,7 @@ public sealed partial class Game
             if (b == null || b.State != BuildingState.Planned) { Jobs.Complete(job.Id); return false; }
         }
 
-        if (job.Kind == JobKind.Cook && !TryConsumeCookIngredients())
+        if (job.Kind == JobKind.Cook && !TryConsumeCookIngredients(job))
         {
             Jobs.Complete(job.Id);
             return false;
@@ -60,7 +60,7 @@ public sealed partial class Game
             return false;
         }
 
-        if (job.Kind == JobKind.Weave && !World.TryTakeItem("fiber", 2))
+        if (job.Kind == JobKind.Weave && !TryConsumeWeaveMaterials(job))
         {
             Jobs.Complete(job.Id);
             return false;
@@ -151,9 +151,9 @@ public sealed partial class Game
         job.ClaimedBy = 0;
         var node = World.Resources.GetValueOrDefault(job.NodeId);
         if (node != null) node.Reserved = false;
-        if (job.Kind == JobKind.Cook) RefundCookIngredients();
+        if (job.Kind == JobKind.Cook) RefundCookIngredients(job);
         if (job.Kind == JobKind.Saw) World.AddItem("log", 1);
-        if (job.Kind == JobKind.Weave) World.AddItem("fiber", 2);
+        if (job.Kind == JobKind.Weave) RefundWeaveMaterials(job);
         if (job.Kind == JobKind.SewClothes) World.AddItem("cloth", 1);
         if (job.Kind == JobKind.Smelt)
         {
@@ -177,9 +177,9 @@ public sealed partial class Game
         Jobs.Complete(job.Id);
         var node = World.Resources.GetValueOrDefault(job.NodeId);
         if (node != null) node.Reserved = false;
-        if (job.Kind == JobKind.Cook) RefundCookIngredients();
+        if (job.Kind == JobKind.Cook) RefundCookIngredients(job);
         if (job.Kind == JobKind.Saw) World.AddItem("log", 1);
-        if (job.Kind == JobKind.Weave) World.AddItem("fiber", 2);
+        if (job.Kind == JobKind.Weave) RefundWeaveMaterials(job);
         if (job.Kind == JobKind.SewClothes) World.AddItem("cloth", 1);
         if (job.Kind == JobKind.Smelt)
         {
@@ -376,9 +376,9 @@ public sealed partial class Game
             case JobKind.Fish: CompleteResourceJob(v, job, Balance.FishYield, "捕得", false, 0.3f); break;
             case JobKind.Hunt: CompleteHunt(v, job); break;
             case JobKind.Build: CompleteBuildTick(v, job); break;
-            case JobKind.Cook: CompleteCook(v); break;
+            case JobKind.Cook: CompleteCook(v, job); break;
             case JobKind.Saw: CompleteSaw(v); break;
-            case JobKind.Weave: CompleteWeave(v); break;
+            case JobKind.Weave: CompleteWeave(v, job); break;
             case JobKind.SewClothes: CompleteSew(v); break;
             case JobKind.HaulStone: CompleteHaulStone(v, job); break;
             case JobKind.FetchWater: CompleteFetchWater(v); break;
@@ -610,8 +610,20 @@ public sealed partial class Game
         }
     }
 
-    private void CompleteCook(Villager v)
+    private void CompleteCook(Villager v, Job job)
     {
+        if (job.ItemId == "cheese")
+        {
+            Log($"{v.Name}把鲜奶做成了奶酪×2", LogSeverity.Normal);
+            BeginCarrying(v, "cheese", 2);
+            return;
+        }
+        if (job.ItemId == "jerky")
+        {
+            Log($"{v.Name}熏制了肉干×3，能存放很久", LogSeverity.Normal);
+            BeginCarrying(v, "jerky", 3);
+            return;
+        }
         Log($"{v.Name}烹好了熟食×2，香气四溢", LogSeverity.Normal);
         BeginCarrying(v, "meal", 2);
     }
@@ -621,8 +633,14 @@ public sealed partial class Game
         BeginCarrying(v, "plank", 2);
     }
 
-    private void CompleteWeave(Villager v)
+    private void CompleteWeave(Villager v, Job job)
     {
+        if (job.ItemId == "hide_coat")
+        {
+            Log($"{v.Name}缝制了一件厚实的毛皮大衣", LogSeverity.Normal);
+            BeginCarrying(v, "hide_coat", 1);
+            return;
+        }
         BeginCarrying(v, "cloth", 1);
     }
 
@@ -715,8 +733,21 @@ public sealed partial class Game
         }
     }
 
-    private bool TryConsumeCookIngredients()
+    private bool TryConsumeCookIngredients(Job job)
     {
+        if (job.ItemId == "cheese")
+        {
+            if (World.CountItem("milk") < 4) return false;
+            World.TryTakeItem("milk", 4);
+            return true;
+        }
+        if (job.ItemId == "jerky")
+        {
+            if (World.CountItem("meat") < 3 || World.CountItem("log") < 1) return false;
+            World.TryTakeItem("meat", 3);
+            World.TryTakeItem("log", 1);
+            return true;
+        }
         if (World.CountItem("water") < 1) return false;
         string? protein = null;
         foreach (var p in new[] { "berries", "fish", "meat", "mushroom" })
@@ -728,11 +759,30 @@ public sealed partial class Game
         return true;
     }
 
-    private void RefundCookIngredients()
+    private void RefundCookIngredients(Job job)
     {
+        if (job.ItemId == "cheese") { World.AddItem("milk", 4); return; }
+        if (job.ItemId == "jerky") { World.AddItem("meat", 3); World.AddItem("log", 1); return; }
         World.AddItem("grain", 1);
         World.AddItem("berries", 2);
         World.AddItem("water", 1);
+    }
+
+    private bool TryConsumeWeaveMaterials(Job job)
+    {
+        if (job.ItemId == "hide_coat")
+        {
+            if (World.CountItem("hide") < 3) return false;
+            World.TryTakeItem("hide", 3);
+            return true;
+        }
+        return World.TryTakeItem("fiber", 2);
+    }
+
+    private void RefundWeaveMaterials(Job job)
+    {
+        if (job.ItemId == "hide_coat") { World.AddItem("hide", 3); return; }
+        World.AddItem("fiber", 2);
     }
 
     private void FarmCellPhase(Villager v, Job job, int phase, string logText)
