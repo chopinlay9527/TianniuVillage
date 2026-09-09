@@ -47,8 +47,19 @@ function setSeason(idx) { currentSeason = idx; }
 function lpcSeasonName() { return SEASON_SHEET[currentSeason]; }
 // 地形枚举 → TEX.terrain 键
 const TERRAIN_KEY = { 0: "deepWater", 1: "shallowWater", 2: "sand", 3: "grass", 4: "forest", 5: "highland", 6: "mountain" };
-// 地形枚举 → Wang 色号
-const TERRAIN_WANG_COLOR = { 0: 6, 1: 5, 2: 1, 3: 0, 4: 0, 5: 2, 6: 9 };
+// 地形枚举 → Wang 色号（经像素验证修正）
+// LPC "Sand"(1)=主地面(含绿色草地+沙滩)，"Dirt"(2)=泥土，"DeepSand"(8)=纯沙
+const TERRAIN_WANG_COLOR = { 0: 6, 1: 5, 2: 8, 3: 1, 4: 1, 5: 2, 6: 9 };
+// 已验证的基底 tile（视觉确认颜色正确）
+const BASE_TILE_OVERRIDE = {
+  0: 1985,  // 深水 (23,58,85) 深蓝 ✓
+  1: 1153,  // 浅水 (42,133,152) 青蓝 ✓
+  2: 267,   // 沙滩 (246,191,122) 沙色 ✓
+  3: 65,    // 草地 (92,154,42) 绿色 ✓
+  4: 65,    // 森林(草+罩色)
+  5: 195,   // 高地/泥土 (168,127,77) 棕色 ✓
+  6: 17,    // 山 (132,88,58) 棕灰岩 ✓
+};
 
 const lpcCellCache = new Map();
 function lpcCell(id) {
@@ -78,27 +89,29 @@ function wangLookup(tx, ty, tiles, mapW, mapH) {
   const WT = getWangTable();
   if (!WT) return -1;
   const idx = ty * mapW + tx;
-  const own = TERRAIN_WANG_COLOR[tiles[idx]] ?? 0;
+  const terrain = tiles[idx];
+  const own = TERRAIN_WANG_COLOR[terrain] ?? 1;
   function at(x, y) {
     if (x < 0 || y < 0 || x >= mapW || y >= mapH) return own;
-    return TERRAIN_WANG_COLOR[tiles[y * mapW + x]] ?? 0;
+    return TERRAIN_WANG_COLOR[tiles[y * mapW + x]] ?? 1;
   }
   const N = at(tx, ty - 1), NE = at(tx + 1, ty - 1), E = at(tx + 1, ty);
   const SE = at(tx + 1, ty + 1), S = at(tx, ty + 1), SW = at(tx - 1, ty + 1), W = at(tx - 1, ty), NW = at(tx - 1, ty - 1);
-  // 角位 = 对角优先，其次正交；任一异于自身 → 用该色
   const TR = NE !== own ? NE : (N !== own ? N : (E !== own ? E : own));
   const BR = SE !== own ? SE : (S !== own ? S : (E !== own ? E : own));
   const BL = SW !== own ? SW : (S !== own ? S : (W !== own ? W : own));
   const TL = NW !== own ? NW : (N !== own ? N : (W !== own ? W : own));
+
+  // 纯内部（四角同色）→ 用已验证基底
+  if (TR === own && BR === own && BL === own && TL === own) {
+    return BASE_TILE_OVERRIDE[terrain] ?? 65;
+  }
+
+  // 过渡区 → 查 Wang 表
   const key = [TR, BR, BL, TL].join(",");
   const ids = WT.cornerTable[key];
   if (ids && ids.length > 0) return ids[(tx * 31 + ty * 57) % ids.length];
-  // 兜底: 地形基底 tile
-  const tName = TERRAIN_KEY[tiles[idx]];
-  const base = WT.baseTile;
-  const bKey = { deepWater: "Deep Water", shallowWater: "Shallow Water", sand: "Sand",
-    grass: "Grass", forest: "Grass", highland: "Dirt", mountain: "Mountain" }[tName];
-  return (base[bKey] ?? base["Grass"]) ?? 735;
+  return BASE_TILE_OVERRIDE[terrain] ?? 65;
 }
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py, tiles, mapW, mapH) {
