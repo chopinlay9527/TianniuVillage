@@ -37,15 +37,21 @@ const TerrainColors = {
 };
 
 // ===== LPC Revised 地形（OGA-BY 3.0，32px，四季同布局）=====
-// 基底 id 清单见 assets/lpc/lpc_index.json（tsx 语义标签+颜色聚类实测提取）
+// 基底/边缘 id 由素材内容分析生成（纯色判定 + 水岸四边朝向掩码），非猜测：
+// 纯草地=绿主导且蓝像素<2%等。掩码: N=8 S=4 W=2 E=1
 const LPC_TERRAIN_BASE = {
-  0: [1921, 1923, 1925, 1927],   // 深水(冬自动结冰)
-  1: [97, 98, 167, 169],         // 浅水
-  2: [12, 13, 74, 15],           // 沙滩
-  3: [1, 64, 65, 66, 7],         // 草地
-  4: [1, 64, 65],                // 森林(草地+深绿罩)
-  5: [16, 17, 18, 19, 21],       // 高地(暖岩)
-  6: [851, 852, 855, 856, 915]   // 山(灰岩)
+  0: [161, 33, 91, 94, 544],   // 深水（纯水：无绿杂色）
+  1: [164, 167, 170, 231, 234],// 浅水（纯水）
+  2: [12, 13, 14, 74, 76],     // 沙滩（纯沙）
+  3: [7, 65, 67, 68, 69, 70, 72],  // 草地（纯草）
+  4: [7, 65, 67, 68],          // 森林（纯草+罩）
+  5: [16, 17, 18, 19],         // 高地(暖岩)
+  6: [446, 881, 1145, 1209, 1212] // 山（纯岩）
+};
+// 水岸件（浅水族）：掩码→id，含陆地色饰边，用于与陆地拼缝
+const LPC_WATER_EDGE = {
+  1: 3980, 2: 4044, 3: 4083, 4: 4018, 5: 3950, 6: 3860, 7: 4029,
+  8: 4053, 9: 4062, 10: 4058, 11: 4093, 12: 4016, 13: 3603, 14: 4095, 15: 4094
 };
 const SEASON_SHEET = ["spring", "summer", "autumn", "winter"];
 let currentSeason = 0;           // 0春 1夏 2秋 3冬
@@ -97,7 +103,7 @@ function waterWaves(ctx, tx, ty, px, py) {
   }
 }
 
-function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
+function drawTerrainTile(ctx, terrain, tx, ty, px, py, tiles, mapW, mapH) {
   const entry = TEX.terrain[TERRAIN_KEY[terrain]];
   if (entry) {
     let drawn = false;
@@ -112,6 +118,21 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
         ctx.fillRect(px + 6 + Math.floor(h1 * 12), py + 4, 2, 10);
         ctx.fillRect(px + 8 + Math.floor(h1 * 12), py + 14, 2, 8);
         ctx.fillRect(px + 20 - Math.floor(h1 * 8), py + 18, 2, 8);
+      }
+      // 水岸拼缝：水格与陆地相邻边，叠对应朝向的水岸件（含陆地饰边）
+      if ((terrain === 0 || terrain === 1) && tiles && mapW && mapH && LpcSheets[lpcSeasonName()]) {
+        const isLand = (x, y) => {
+          if (x < 0 || y < 0 || x >= mapW || y >= mapH) return true;
+          const t = tiles[y * mapW + x];
+          return t !== 0 && t !== 1;
+        };
+        let mask = 0;
+        if (isLand(tx, ty - 1)) mask |= 8;
+        if (isLand(tx, ty + 1)) mask |= 4;
+        if (isLand(tx - 1, ty)) mask |= 2;
+        if (isLand(tx + 1, ty)) mask |= 1;
+        const eid = LPC_WATER_EDGE[mask];
+        if (eid) ctx.drawImage(lpcCell(eid), px, py);
       }
       drawn = true;
     } else if (entry.color) {

@@ -83,7 +83,7 @@ class WorldView {
       for (let lx = 0; lx < CHUNK; lx++) {
         const wx = x0 + lx, wy = y0 + ly;
         if (wx >= this.mapW || wy >= this.mapH) continue;
-        drawTerrainTile(ctx, this.tiles[wy * this.mapW + wx], wx, wy, lx * TILE, ly * TILE);
+        drawTerrainTile(ctx, this.tiles[wy * this.mapW + wx], wx, wy, lx * TILE, ly * TILE, this.tiles, this.mapW, this.mapH);
       }
     }
     // 通道 B：旧 16px 素材（道路/资源物件）经 ×2 缩放叠加
