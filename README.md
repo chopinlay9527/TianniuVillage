@@ -119,9 +119,10 @@ TianniuVillage/
 
 ## 🎨 素材来源
 
-- **Ninja Adventure Asset Pack**（村民角色贴图）— 作者 [pixel-boy](https://pixel-boy.itch.io/ninja-adventure-asset-pack)，[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 公有领域，可自由使用无需署名。素材取自 `MarioLDD/Kuroshiro-adventure`（GitHub）vendor 副本，原样复制至 `wwwroot/assets/char/`。
-- 其余美术（地形、道路、建筑、动物）为本项目运行时程序化生成。
+- **村民/动物角色**：Ninja Adventure Asset Pack — 作者 [pixel-boy](https://pixel-boy.itch.io/ninja-adventure-asset-pack)，[CC0](https://creativecommons.org/publicdomain/zero/1.0/)。25 个角色 + 鸡/猪/牛家畜。
+- **地形与资源物件（树/浆果丛/药草等）**：Kenney **Tiny Town** + **Tiny Farm** — [kenney.nl](https://kenney.nl/assets/tiny-town)，[CC0](https://creativecommons.org/publicdomain/zero/1.0/)。草地/沙滩/水域/森林(罩色派生)/高地/山 + 圆冠树 ×4 + 灌木/浆果/药草，水岸自动白沫边。
+- 其余（道路、建筑、矿脉、蘑菇等）为本项目运行时程序化生成。
 
 ## 📜 许可
 
-MIT License（游戏代码；素材遵循各自许可）
+MIT License（游戏代码；素材遵循各自许可，均为 CC0）

@@ -27,107 +27,46 @@ const TerrainColors = {
   6: ["#6b6e60", "#5f6255", "#74776a"]   // 山
 };
 
-// ===== 地形 pack 贴图系统 =====
-// 全部使用扫描验证的 100% 全不透明整格（off-color < 12），杜绝 autotile 碎片
-const TERRAIN_PACK = {
-  0: { synth: "deepwater" },                                             // 深水（程序化·Ninja深青调色板）
-  1: { synth: "shallowwater" },                                          // 浅水（程序化·Ninja浅青调色板）
-  2: { sheet: "Element", idx: [93, 94], alt: [{ sheet: "Relief", idx: [163] }] }, // 沙滩
-  3: { sheet: "Village", idx: [141, 142, 201, 202], alt: [{ sheet: "Nature", idx: [89, 90, 93, 94, 460] }] }, // 草地
-  4: { sheet: "Nature", idx: [73, 74] },                                 // 森林地被（深绿）
-  5: { sheet: "Relief", idx: [25, 28, 30, 45, 48, 50] },                 // 高地（苔岩）
-  6: { synth: "mountain" }                                               // 山（程序化·Ninja巨岩调色板）
-};
-const packCellCache = new Map();
-function packCell(sheetKey, idx) {
-  const key = sheetKey + ":" + idx;
-  if (packCellCache.has(key)) return packCellCache.get(key);
-  const sheet = TileSheets[sheetKey];
+// ===== Tiny 环境系统（Kenney Tiny Town / Tiny Farm, CC0）=====
+// 整合图 12x11 格，无间距，索引 = 行主序
+const TINY_COLS = 12;
+const tinyCellCache = new Map();
+function tinyCell(pack, idx) {
+  const key = pack + ":" + idx;
+  if (tinyCellCache.has(key)) return tinyCellCache.get(key);
   const out = mkCanvas(16, 16);
-  if (!sheet) { packCellCache.set(key, out); return out; }
-  const cols = Math.floor(sheet.width / 16);
-  const sx = (idx % cols) * 16, sy = Math.floor(idx / cols) * 16;
-  const ctx = out.getContext("2d");
-  ctx.drawImage(sheet, sx, sy, 16, 16, 0, 0, 16, 16);
-  packCellCache.set(key, out);
+  const sheet = TinySheets[pack];
+  if (sheet) {
+    const ctx = out.getContext("2d");
+    ctx.drawImage(sheet, (idx % TINY_COLS) * 16, Math.floor(idx / TINY_COLS) * 16, 16, 16, 0, 0, 16, 16);
+  }
+  tinyCellCache.set(key, out);
   return out;
 }
-// 程序化合成地形（调色板取自 Ninja 素材实测值）
-const synthCache = new Map();
-function synthTerrain(kind, variant) {
-  const key = kind + ":" + variant;
-  if (synthCache.has(key)) return synthCache.get(key);
-  const c = mkCanvas(16, 16);
-  const ctx = c.getContext("2d");
-  const h = (n) => hash01(kind.length * 31 + variant, n * 17 + variant * 7, 99);
-  if (kind === "shallowwater" || kind === "deepwater") {
-    const shallow = kind === "shallowwater";
-    const base = shallow ? "#88d1da" : "#4a7886";
-    const wave = shallow ? "#6fb9c6" : "#3d6373";
-    const spark = shallow ? "#c8ecf0" : "#5d8b99";
-    ctx.fillStyle = base;
-    ctx.fillRect(0, 0, 16, 16);
-    // 横向波纹（错落两道）
-    const y1 = 3 + Math.floor(h(1) * 4), y2 = 9 + Math.floor(h(2) * 4);
-    ctx.fillStyle = wave;
-    ctx.fillRect(Math.floor(h(3) * 8), y1, 5 + Math.floor(h(4) * 3), 1);
-    ctx.fillRect(Math.floor(h(5) * 8), y2, 4 + Math.floor(h(6) * 3), 1);
-    ctx.fillStyle = spark;
-    ctx.fillRect(Math.floor(h(7) * 13), Math.floor(h(8) * 13), 2, 1);
-    ctx.fillRect(Math.floor(h(9) * 14), Math.floor(h(10) * 14), 1, 1);
-  } else if (kind === "mountain") {
-    const base = "#b2a09b", crack = "#8a7772", hi = "#d8ccc8", spec = "#9c8a85";
-    ctx.fillStyle = base;
-    ctx.fillRect(0, 0, 16, 16);
-    // 裂纹（两条折线向下）
-    ctx.fillStyle = crack;
-    let cx = 2 + Math.floor(h(1) * 5), cy = 0;
-    for (let s = 0; s < 5; s++) {
-      ctx.fillRect(cx, cy, 1, 2 + Math.floor(h(20 + s) * 2));
-      cx += 1 + Math.floor(h(30 + s) * 2);
-      cy += 2;
-    }
-    let cx2 = 9 + Math.floor(h(11) * 4), cy2 = 1;
-    for (let s = 0; s < 4; s++) {
-      ctx.fillRect(cx2, cy2, 1, 2);
-      cx2 -= 1 + Math.floor(h(40 + s) * 2);
-      cy2 += 3;
-    }
-    // 高光（左上边缘）
-    ctx.fillStyle = hi;
-    ctx.fillRect(0, 0, 3 + Math.floor(h(12) * 3), 1);
-    ctx.fillRect(0, 0, 1, 3 + Math.floor(h(13) * 3));
-    // 碎点
-    ctx.fillStyle = spec;
-    for (let i = 0; i < 4; i++)
-      ctx.fillRect(Math.floor(h(50 + i) * 14), Math.floor(h(60 + i) * 14), 2, 1);
-  }
-  synthCache.set(key, c);
-  return c;
-}
-function packTerrainCell(terrain, wx, wy) {
-  const def = TERRAIN_PACK[terrain];
-  if (!def) return null;
-  if (def.synth) return synthTerrain(def.synth, (wx * 31 + wy * 57) % 4);
-  // 主集合 + 备选集合合并采样
-  const all = [];
-  for (const i of def.idx) all.push([def.sheet, i]);
-  if (def.alt) for (const a of def.alt) for (const i of a.idx) all.push([a.sheet, i]);
-  const pick = all[(wx * 31 + wy * 57) % all.length];
-  return packCell(pick[0], pick[1]);
-}
+// 地形: base 源格变体 + tint 整格叠加（森林/深水/高地/山由基础色+罩色派生，风格统一）
+const TINY_TERRAIN = {
+  0: { pack: "town", base: [77], tint: "rgba(15,35,70,0.38)" },        // 深水
+  1: { pack: "town", base: [77, 43], tint: null },                     // 浅水
+  2: { pack: "town", base: [25, 39, 40, 41, 42], tint: null },         // 沙滩(干土)
+  3: { pack: "town", base: [0, 1, 2], tint: null },                    // 草地
+  4: { pack: "town", base: [0, 1], tint: "rgba(20,60,20,0.32)" },      // 森林
+  5: { pack: "town", base: [25, 39], tint: "rgba(115,115,100,0.30)" }, // 高地
+  6: { pack: "town", base: [25, 39], tint: "rgba(100,100,115,0.48)" }  // 山
+};
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
-  // 若有 pack 素材则整铺源格；仅当对应源缺失时回退程序化
-  if (TileSheets && TERRAIN_PACK[terrain] && packTerrainCell(terrain, tx, ty)) {
-    ctx.drawImage(packTerrainCell(terrain, tx, ty), px, py);
-    // 微噪声叠加，保留手绘纹理感
-    for (let i = 0; i < 4; i++) {
-      const rx = Math.floor(hash01(tx, ty, 300 + i) * 16);
-      const ry = Math.floor(hash01(ty, tx, 600 + i) * 16);
-      const v = hash01(tx * 7 + ry, ty * 13 + rx, 11);
-      ctx.fillStyle = v < 0.5 ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
-      ctx.fillRect(px + rx, py + ry, 1, 1);
+  const def = TINY_TERRAIN[terrain];
+  if (def && TinySheets[def.pack]) {
+    const idx = def.base[(tx * 31 + ty * 57) % def.base.length];
+    ctx.drawImage(tinyCell(def.pack, idx), px, py);
+    if (def.tint) { ctx.fillStyle = def.tint; ctx.fillRect(px, py, 16, 16); }
+    if (terrain === 6) {
+      // 山体裂纹
+      const h1 = hash01(tx, ty, 500);
+      ctx.fillStyle = "rgba(35,35,45,0.55)";
+      ctx.fillRect(px + 3 + Math.floor(h1 * 6), py + 2, 1, 5);
+      ctx.fillRect(px + 4 + Math.floor(h1 * 6), py + 7, 1, 4);
+      ctx.fillRect(px + 10 - Math.floor(h1 * 4), py + 9, 1, 4);
     }
     return;
   }
@@ -149,41 +88,15 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py) {
   }
 }
 
-// Kenney Roguelike 树的 16x16 格（行主序 = ty*57+tx；4 变体含果子树）
-const KENNEY_TREES = [9 * 57 + 13, 9 * 57 + 15, 11 * 57 + 13, 11 * 57 + 23, 11 * 57 + 16];
-const kenneyTreeCache = new Map();
-function kenneyTreeCell(seed) {
-  const idx = KENNEY_TREES[seed % KENNEY_TREES.length];
-  if (kenneyTreeCache.has(idx)) return kenneyTreeCache.get(idx);
-  const out = mkCanvas(16, 16);
-  if (KenneySheet.img) {
-    const ctx = out.getContext("2d");
-    const tx = idx % 57, ty = Math.floor(idx / 57);
-    ctx.drawImage(KenneySheet.img, tx * 17, ty * 17, 16, 16, 0, 0, 16, 16);
-    // 树冠重新着色：冷绿 → Ninja 橄榄绿系（与草地 154,178,56 同族）
-    const pd = ctx.getImageData(0, 0, 16, 16);
-    const d = pd.data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 40) continue;
-      const r = d[i], g = d[i + 1], b = d[i + 2];
-      if (g > r + 12 && g > b + 12) {
-        d[i] = Math.min(255, r * 0.9 + 20);
-        d[i + 1] = Math.min(255, g * 0.95);
-        d[i + 2] = b * 0.45;
-      }
-    }
-    ctx.putImageData(pd, 0, 0);
-  }
-  kenneyTreeCache.set(idx, out);
-  return out;
-}
+// Tiny 树: town t3/t4/t5 三种圆冠规格 + farm f39
+const TINY_TREES = [["town", 3], ["town", 4], ["town", 5], ["farm", 39]];
 
 function drawTree(ctx, px, py, seed) {
-  if (KenneySheet.img) {
-    // 落地阴影
-    ctx.fillStyle = "rgba(30,40,20,0.25)";
-    ctx.fillRect(px + 3, py + 13, 10, 2);
-    ctx.drawImage(kenneyTreeCell(seed), px, py);
+  if (TinySheets.town && TinySheets.farm) {
+    ctx.fillStyle = "rgba(30,60,25,0.25)";
+    ctx.fillRect(px + 2, py + 13, 12, 2);
+    const [pk, idx] = TINY_TREES[seed % TINY_TREES.length];
+    ctx.drawImage(tinyCell(pk, idx), px, py);
     return;
   }
   const trunkX = px + 7;
@@ -202,6 +115,17 @@ function drawTree(ctx, px, py, seed) {
 }
 
 function drawBush(ctx, px, py, hasBerries) {
+  if (TinySheets.town && TinySheets.farm) {
+    ctx.fillStyle = "rgba(30,60,25,0.22)";
+    ctx.fillRect(px + 3, py + 13, 10, 2);
+    ctx.drawImage(tinyCell(hasBerries ? "farm" : "town", hasBerries ? 27 : 7), px, py);
+    if (hasBerries) {
+      ctx.fillStyle = "#d0455a";
+      ctx.fillRect(px + 6, py + 8, 2, 2);
+      ctx.fillRect(px + 9, py + 10, 2, 2);
+    }
+    return;
+  }
   ctx.fillStyle = "#3c7a2e";
   ctx.fillRect(px + 3, py + 8, 10, 6);
   ctx.fillStyle = "#4c8c3a";
@@ -238,6 +162,10 @@ function drawStone(ctx, px, py, seed) {
 }
 
 function drawHerb(ctx, px, py) {
+  if (TinySheets.farm) {
+    ctx.drawImage(tinyCell("farm", 15), px, py);
+    return;
+  }
   ctx.fillStyle = "#5aa06a";
   for (let i = 0; i < 4; i++) {
     const x = px + 3 + i * 3;
@@ -341,15 +269,25 @@ function drawResource(ctx, r, px, py) {
     case ResKind.Stone: drawStone(ctx, px, py, r.id); break;
     case ResKind.Herb: drawHerb(ctx, px, py); break;
     case ResKind.FlaxPatch:
-      ctx.fillStyle = "#5a8a5a";
-      ctx.fillRect(px + 3, py + 8, 10, 6);
-      ctx.fillStyle = "#8aa8d0";
-      ctx.fillRect(px + 4, py + 5, 2, 4);
-      ctx.fillRect(px + 8, py + 4, 2, 5);
-      ctx.fillRect(px + 11, py + 6, 2, 3);
-      ctx.fillStyle = "#b8c8e8";
-      ctx.fillRect(px + 4, py + 4, 2, 1);
-      ctx.fillRect(px + 8, py + 3, 2, 1);
+      if (TinySheets.farm) {
+        ctx.drawImage(tinyCell("farm", 15), px, py);
+        ctx.fillStyle = "rgba(90,110,210,0.35)";
+        ctx.fillRect(px + 3, py + 5, 10, 9);
+        ctx.fillStyle = "rgba(200,215,255,0.8)";
+        ctx.fillRect(px + 5, py + 4, 2, 2);
+        ctx.fillRect(px + 9, py + 3, 2, 2);
+        ctx.fillRect(px + 12, py + 6, 2, 2);
+      } else {
+        ctx.fillStyle = "#5a8a5a";
+        ctx.fillRect(px + 3, py + 8, 10, 6);
+        ctx.fillStyle = "#8aa8d0";
+        ctx.fillRect(px + 4, py + 5, 2, 4);
+        ctx.fillRect(px + 8, py + 4, 2, 5);
+        ctx.fillRect(px + 11, py + 6, 2, 3);
+        ctx.fillStyle = "#b8c8e8";
+        ctx.fillRect(px + 4, py + 4, 2, 1);
+        ctx.fillRect(px + 8, py + 3, 2, 1);
+      }
       break;
     case ResKind.FishSpot: drawFishSpot(ctx, px, py); break;
     case ResKind.WaterSpot:

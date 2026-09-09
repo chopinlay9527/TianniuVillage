@@ -22,14 +22,8 @@ const CHAR_DEFS = {
 const CharSheets = {};
 // 动物/家畜表: key -> img（Ninja Adventure 同一素材包）
 const AnimalSheets = {};
-// 地形 tileset 表: 源图
-const TileSheets = {};
-const TILESET_FILES = {
-  Field: "TilesetField.png", Water: "TilesetWater.png", Nature: "TilesetNature.png",
-  Relief: "TilesetRelief.png", Village: "TilesetVillageAbandoned.png", Element: "TilesetElement.png"
-};
-// Kenney Roguelike/RPG 素材表（CC0）— 树木等对象
-const KenneySheet = { img: null };
+// Tiny Town / Tiny Farm 环境表（Kenney CC0，12x11 格整合图，行主序）
+const TinySheets = { town: null, farm: null };
 const ANIMAL_FILES = [
   "Chicken_SpriteSheetWhite.png", "Chicken_SpriteSheetBrown.png",
   "Chicken_SpriteSheetCute.png", "Chicken_SpriteSheetBlack.png",
@@ -49,7 +43,7 @@ function loadImage(url) {
 
 async function loadCharSheets(onProgress) {
   if (loadPromise) return loadPromise;
-  const total = Object.keys(CHAR_DEFS).length + ANIMAL_FILES.length + Object.keys(TILESET_FILES).length;
+  const total = Object.keys(CHAR_DEFS).length + ANIMAL_FILES.length + Object.keys(TinySheets).length;
   let done = 0;
   const tick = () => { done++; onProgress && onProgress(done, total); };
   loadPromise = (async () => {
@@ -63,13 +57,10 @@ async function loadCharSheets(onProgress) {
       if (img) AnimalSheets[f] = img;
       tick();
     }));
-    await Promise.all(Object.entries(TILESET_FILES).map(async ([k, f]) => {
-      const img = await loadImage("assets/tileset/" + f);
-      if (img) TileSheets[k] = img;
+    for (const k of Object.keys(TinySheets)) {
+      TinySheets[k] = await loadImage("assets/tiny/" + k + ".png");
       tick();
-    }));
-    KenneySheet.img = await loadImage("assets/kenney_sheet.png");
-    tick();
+    }
   })();
   return loadPromise;
 }

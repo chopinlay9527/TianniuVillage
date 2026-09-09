@@ -58,6 +58,14 @@ class WorldView {
     return Math.floor(y / CHUNK) * Math.ceil(this.mapW / CHUNK) + Math.floor(x / CHUNK);
   }
 
+  terrainAtIdx(i) {
+    return this.tiles[i];
+  }
+  isWaterTerrain(i) {
+    const t = this.tiles[i];
+    return t === 0 || t === 1;
+  }
+
   redrawChunk(cxx, cyy) {
     const idx = cyy * this.cx + cxx;
     const ctx = this.chunkCanvases[idx].getContext("2d");
@@ -72,6 +80,25 @@ class WorldView {
           const rl = this.roadLevels[wy * this.mapW + wx];
           if (rl) drawRoad(ctx, rl, lx * TILE, ly * TILE, wx, wy, this.roadLevels, this.mapW, this.mapH);
         }
+      }
+    }
+    // 水岸白沫：水格与陆地相邻的一侧画浅色边
+    ctx.fillStyle = "rgba(228,242,248,0.55)";
+    for (let ly = 0; ly < CHUNK; ly++) {
+      for (let lx = 0; lx < CHUNK; lx++) {
+        const wx = x0 + lx, wy = y0 + ly;
+        if (wx >= this.mapW || wy >= this.mapH) continue;
+        const i = wy * this.mapW + wx;
+        if (!this.isWaterTerrain(i)) continue;
+        const px = lx * TILE, py = ly * TILE;
+        const landN = wy > 0 && !this.isWaterTerrain(i - this.mapW);
+        const landS = wy < this.mapH - 1 && !this.isWaterTerrain(i + this.mapW);
+        const landW = wx > 0 && !this.isWaterTerrain(i - 1);
+        const landE = wx < this.mapW - 1 && !this.isWaterTerrain(i + 1);
+        if (landN) ctx.fillRect(px, py, TILE, 2);
+        if (landS) ctx.fillRect(px, py + TILE - 2, TILE, 2);
+        if (landW) ctx.fillRect(px, py, 2, TILE);
+        if (landE) ctx.fillRect(px + TILE - 2, py, 2, TILE);
       }
     }
     for (const rid of this.chunkRes[idx]) {
