@@ -6,13 +6,15 @@ public class NameGenTests
     public void Generate_5000Names_NoDuplicates()
     {
         var used = new HashSet<string>();
+        var seen = new HashSet<string>();
         var rng = new Rng(12345);
         for (int i = 0; i < 5000; i++)
         {
             var sex = i % 2 == 0 ? Sex.Male : Sex.Female;
             string n = NameGen.Next(rng, sex, null, used);
-            Assert.True(used.Contains(n));
+            seen.Add(n);
         }
+        Assert.Equal(5000, seen.Count);
         Assert.Equal(5000, used.Count);
     }
 

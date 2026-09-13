@@ -16,7 +16,6 @@ public sealed class Villager
     public float Stamina = 100f;
     public float Health = 100f;
     public float Happiness = 70f;
-    public float MentalAvgToday = 70f;
 
     public float Diligence;
     public float Optimism;
@@ -46,7 +45,6 @@ public sealed class Villager
     public string HatedFood = "mushroom";
     public float Reputation;
     public VillageRole Role = VillageRole.None;
-    public int ToolDurabilityLeft;
     public bool MentalBreaking;
     public int MentalBreakDaysLeft;
 

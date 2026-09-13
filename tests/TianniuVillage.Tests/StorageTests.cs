@@ -30,7 +30,7 @@ public class StorageTests
     {
         var game = Game.NewGame(2024);
         var v = game.Villagers[0];
-        game.BeginCarryingForTest(v, "berries", 5);
+        game.BeginCarrying(v, "berries", 5);
         int before = game.World.CountItem("berries");
 
         for (int i = 0; i < 400 && v.CarryLoad.Count > 0; i++) game.Step();

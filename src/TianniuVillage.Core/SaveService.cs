@@ -22,6 +22,8 @@ public sealed class SaveData
     public List<ResourceNode> Resources = [];
     public List<Job> Jobs = [];
     public Dictionary<string, int> Stock = [];
+    public Dictionary<string, long>? Produced;
+    public Dictionary<string, long>? Consumed;
     public bool WinterClothesAssigned;
     public List<string> Researched = [];
     public string? CurrentTech;
@@ -57,6 +59,13 @@ public static class SaveService
 
     public static void Save(Game game, string path)
     {
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        File.WriteAllText(path, Serialize(game));
+    }
+
+    public static string Serialize(Game game)
+    {
         var tiles = new byte[game.World.Map.Tiles.Length];
         for (int i = 0; i < tiles.Length; i++) tiles[i] = (byte)game.World.Map.Tiles[i];
 
@@ -82,6 +91,8 @@ public static class SaveService
             Resources = game.World.Resources.Values.ToList(),
             Jobs = game.Jobs.All.ToList(),
             Stock = game.World.Stock,
+            Produced = game.World.Produced,
+            Consumed = game.World.Consumed,
             WinterClothesAssigned = game.World.WinterClothesAssigned,
             Researched = game.World.Researched.ToList(),
             CurrentTech = game.World.CurrentTech,
@@ -106,9 +117,7 @@ public static class SaveService
             UsedNames = game.UsedNames.ToList()
         };
 
-        var dir = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        File.WriteAllText(path, JsonSerializer.Serialize(data, Options));
+        return JsonSerializer.Serialize(data, Options);
     }
 
     public static Game Load(string path)
@@ -145,25 +154,25 @@ public static class SaveService
         game.World.Traffic = data.Traffic ?? [];
         game.World.RoadSegments = data.RoadSegments.ToDictionary(s => s.Id);
         game.World.NextSegmentId = data.NextSegmentId;
-        if (game.World.Buildings.All(b => b.Key != "villagecenter"))
+
+        game.World.SettleCenter = data.SettleCenter;
+        if (data.Buildings.All(b => b.Key != "villagecenter"))
         {
-            var (scx, scy) = game.World.SettleCenter;
-            game.World.Buildings.Add(new Building
+            data.Buildings.Add(new Building
             {
-                Id = game.World.NextBuildingId++,
+                Id = data.NextBuildingId++,
                 Key = "villagecenter",
-                X = scx - 1,
-                Y = scy - 1,
+                X = data.SettleCenter.x - 1,
+                Y = data.SettleCenter.y - 1,
                 State = BuildingState.Complete
             });
         }
-        game.World.RebuildBlocked();
-
-        game.World.SettleCenter = data.SettleCenter;
         game.World.Resources = data.Resources.ToDictionary(n => game.World.Map.Index(n.X, n.Y));
         game.World.Buildings = data.Buildings;
         game.World.Animals = data.Animals;
         game.World.Stock = data.Stock;
+        game.World.Produced = data.Produced ?? [];
+        game.World.Consumed = data.Consumed ?? [];
         game.World.WinterClothesAssigned = data.WinterClothesAssigned;
         game.World.Researched = new HashSet<string>(data.Researched ?? []);
         game.World.CurrentTech = data.CurrentTech;
@@ -186,6 +195,7 @@ public static class SaveService
         game.UsedNames = data.UsedNames != null && data.UsedNames.Count > 0
             ? new HashSet<string>(data.UsedNames)
             : new HashSet<string>(data.Villagers.Select(v => v.Name));
+        game.World.RebuildBlocked();
         return game;
     }
 }

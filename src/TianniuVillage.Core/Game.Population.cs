@@ -17,8 +17,6 @@ public sealed partial class Game
         }
     }
 
-    private void DailyTick_Clothes() { }
-
     private void DistributeWinterClothes()
     {
         if (Season == Season.Winter && !World.WinterClothesAssigned)
@@ -187,6 +185,7 @@ public sealed partial class Game
                 {
                     v.Ill = true;
                     v.IllnessDaysLeft = Rng.NextFloat(3, 8);
+                    v.Disease = (DiseaseType)Rng.Next(1, 5);
                     v.AddMood("生病了，浑身乏力", -8f, 96f);
                     Log($"{v.Name}病倒了，需要草药照料", LogSeverity.Important);
                 }

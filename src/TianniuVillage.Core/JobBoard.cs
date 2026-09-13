@@ -73,5 +73,47 @@ public sealed class JobBoard
         foreach (var j in jobs) _jobs[j.Id] = j;
     }
 
-    public void PruneStale(int gameTick, Game game) { }
+    public void PruneStale(int gameTick, Game game)
+    {
+        List<int> toRemove = [];
+        foreach (var j in _jobs.Values)
+        {
+            if (j.State is not (JobState.Open or JobState.Claimed)) continue;
+            if (IsStale(game, j)) toRemove.Add(j.Id);
+        }
+        if (toRemove.Count == 0) return;
+
+        foreach (var id in toRemove) _jobs.Remove(id);
+        foreach (var v in game.Villagers)
+        {
+            if (v.CurrentJobId is int jid && toRemove.Contains(jid))
+            {
+                v.CurrentJobId = null;
+                v.Path = null;
+                v.Activity = VillagerActivity.Idle;
+                game.SetSelfTask(v, null, null);
+                v.DecisionCooldown = 5;
+            }
+        }
+    }
+
+    private static bool IsStale(Game game, Job job)
+    {
+        if (job.NodeId > 0 && !game.World.Resources.ContainsKey(job.NodeId)) return true;
+        if (job.AnimalId > 0 && !game.World.Animals.Any(a => a.Id == job.AnimalId)) return true;
+        if (job.SegmentId > 0 && !game.World.RoadSegments.ContainsKey(job.SegmentId)) return true;
+        if (job.BuildingId <= 0) return false;
+
+        var b = game.World.Buildings.FirstOrDefault(x => x.Id == job.BuildingId);
+        if (b == null) return true;
+        return job.Kind switch
+        {
+            JobKind.Build or JobKind.HaulStone => b.State != BuildingState.Planned,
+            JobKind.TendLivestock => b.LivestockCount <= 0,
+            JobKind.Plow or JobKind.Sow or JobKind.Harvest => b.State != BuildingState.Complete,
+            JobKind.Cook or JobKind.Saw or JobKind.Weave or JobKind.SewClothes
+                or JobKind.Smelt or JobKind.CraftTool => b.State != BuildingState.Complete,
+            _ => false
+        };
+    }
 }

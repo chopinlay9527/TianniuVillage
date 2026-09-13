@@ -69,7 +69,7 @@ public class LivestockTests
             game.Rng.ReSeed(seed);
             var job = game.Jobs.Add(game.World, JobKind.TendLivestock, 78, cx, cy, buildingId: ranch.Id);
             hauler.CurrentJobId = job.Id;
-            game.CompleteTendLivestockForTest(hauler, job);
+            game.CompleteTendLivestock(hauler, job);
             if (ranch.LivestockCount > before) bred = true;
             if (hauler.CarryLoad.Count > 0) hauler.CarryLoad.Clear();
         }

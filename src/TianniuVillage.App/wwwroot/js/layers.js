@@ -132,7 +132,7 @@ class VillagerLayer {
     }
     for (const [id, s] of this.sprites) {
       if (!seen.has(id)) {
-        s.destroy();
+        s.destroy({ texture: true, baseTexture: true });
         this.sprites.delete(id);
         const lbl = this.labels.get(id);
         if (lbl) { lbl.destroy(); this.labels.delete(id); }
@@ -238,10 +238,12 @@ class BuildingLayer {
     parent.addChild(this.container);
     this.sprites = new Map();
     this.texCache = new Map();
+    this._livestockTexCache = new Map();
   }
 
   tex(key, state) {
-    const k2 = key + ":" + state;
+    const season = key === "farm" ? lpcSeasonName() : "";
+    const k2 = key + ":" + state + ":" + season;
     if (!this.texCache.has(k2)) this.texCache.set(k2, PIXI.Texture.from(makeBuildingTexture(key, state)));
     return this.texCache.get(k2);
   }
@@ -263,7 +265,7 @@ class BuildingLayer {
         s._state = b.state;
         s.texture = this.tex(b.k, b.state);
         if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; s._livestockKey = null; }
-        if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy()); s._cropSprites = null; s._cropSig = null; }
+        if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy({ texture: true, baseTexture: true })); s._cropSprites = null; s._cropSig = null; }
         if (s._cropSprite) { s._cropSprite.destroy(); s._cropSprite = null; }
       }
       if (b.k === "farm") {
@@ -271,7 +273,7 @@ class BuildingLayer {
         const sig = (b.crop || []).join(",");
         if (s._cropSig !== sig) {
           s._cropSig = sig;
-          if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy()); s._cropSprites = null; }
+          if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy({ texture: true, baseTexture: true })); s._cropSprites = null; }
           s._cropSprites = [];
           const style = BuildingStyle[b.k] || { w: 3, h: 3 };
           const crop = b.crop || [];
@@ -298,8 +300,10 @@ class BuildingLayer {
           const style = BuildingStyle[b.k] || { w: 2, h: 2 };
           const cap = Math.min(b.lc, Math.max(4, style.w * style.h));
           for (let i = 0; i < cap; i++) {
-            const tex2 = PIXI.Texture.from(makeLivestockTexture(b.lt, b.id * 31 + i * 17));
-            const sp = new PIXI.Sprite(tex2);
+            const tkey = b.lt + ":" + ((b.id % 64) * 31 + i * 17);
+            if (!this._livestockTexCache.has(tkey))
+              this._livestockTexCache.set(tkey, PIXI.Texture.from(makeLivestockTexture(b.lt, (b.id % 64) * 31 + i * 17)));
+            const sp = new PIXI.Sprite(this._livestockTexCache.get(tkey));
             sp.scale.set(2, 2);
             sp.anchor.set(0.5, 1);
             sp.alpha = 0.98;
@@ -319,7 +323,7 @@ class BuildingLayer {
     for (const [id, s] of this.sprites) {
       if (!seen.has(id)) {
         if (s._cropSprite) s._cropSprite.destroy();
-        if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy()); s._cropSprites = null; }
+        if (s._cropSprites) { s._cropSprites.forEach(x => x.destroy({ texture: true, baseTexture: true })); s._cropSprites = null; }
         if (s._livestockSprites) { s._livestockSprites.forEach(x => x.destroy()); s._livestockSprites = null; }
         s.destroy();
         this.sprites.delete(id);

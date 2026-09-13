@@ -36,10 +36,11 @@ const TerrainColors = {
   6: ["#6b6e60", "#5f6255", "#74776a"]   // 山
 };
 
-// ===== Wang Set 驱动的 LPC 地形系统（OGA-BY 3.0，32px，四季同布局）=====
-// wang_table.json 由 tsx wangset 解析生成——拼接规则由素材作者定义，非猜测
-// 位置含义: 角位 [TR, BR, BL, TL]，边位恒 0
-// 色号: 0=Grass 1=Sand 2=Dirt 5=ShallowWater 6=DeepWater 9=Mountain 10=GrassyMtn
+// ===== 官方 LPC Wang Set 驱动的地形系统（OGA-BY 3.0 / CC-BY 3.0，32px）=====
+// 元数据来源(权威): assets/lpc/official/*.tsx
+//   → tools/TianniuVillage.TileSetImport → assets/lpc/terrain_profile.js
+// Tiled 语义: wangid 角位取值是 **1 基颜色 ID**，0 = 无颜色(未约束)；
+//   角位顺序 [TR, BR, BL, TL]（对应 wangid 下标 1,3,5,7）
 
 const SEASON_SHEET = ["spring", "summer", "autumn", "winter"];
 let currentSeason = 0;
@@ -47,19 +48,51 @@ function setSeason(idx) { currentSeason = idx; }
 function lpcSeasonName() { return SEASON_SHEET[currentSeason]; }
 // 地形枚举 → TEX.terrain 键
 const TERRAIN_KEY = { 0: "deepWater", 1: "shallowWater", 2: "sand", 3: "grass", 4: "forest", 5: "highland", 6: "mountain" };
-// 地形枚举 → Wang 色号（经像素验证修正）
-// LPC "Sand"(1)=主地面(含绿色草地+沙滩)，"Dirt"(2)=泥土，"DeepSand"(8)=纯沙
-const TERRAIN_WANG_COLOR = { 0: 6, 1: 5, 2: 8, 3: 1, 4: 1, 5: 2, 6: 9 };
-// 已验证的基底 tile（视觉确认颜色正确）
-const BASE_TILE_OVERRIDE = {
-  0: 1985,  // 深水 (23,58,85) 深蓝 ✓
-  1: 1153,  // 浅水 (42,133,152) 青蓝 ✓
-  2: 267,   // 沙滩 (246,191,122) 沙色 ✓
-  3: 65,    // 草地 (92,154,42) 绿色 ✓
-  4: 65,    // 森林(草+罩色)
-  5: 195,   // 高地/泥土 (168,127,77) 棕色 ✓
-  6: 17,    // 山 (132,88,58) 棕灰岩 ✓
+
+// --- 权威 profile 访问层 ---
+function getProfile() { return (typeof window !== "undefined" && window.TERRAIN_PROFILE) || null; }
+let COLOR_ID_BY_NAME = null;
+function ensureProfileDerived() {
+  if (COLOR_ID_BY_NAME) return;
+  COLOR_ID_BY_NAME = {};
+  const P = getProfile();
+  if (P) for (const c of P.colors) COLOR_ID_BY_NAME[c.name] = c.id;
+}
+// 游戏地形 → 官方色名。山按作者模型并入 Dirt（官方 Mountain 色只有透明覆盖件、零过渡画），
+// 以 TEX.terrain.mountain.tint 罩色区分；森林同理 = Grass + 罩色
+const TERRAIN_COLOR_NAME = {
+  0: "Deep Water", 1: "Shallow Water", 2: "Sand", 3: "Grass", 4: "Grass", 5: "Dirt", 6: "Dirt"
 };
+// 权威基底 tile: 取自 profile 的"四角同色键"候选，并经像素实测确认
+const BASE_TILE_BY_COLOR_NAME = {
+  "Grass": 65, "Sand": 74, "Dirt": 195, "Light Till": 205, "Deep Till": 526,
+  "Shallow Water": 1153, "Deep Water": 1985, "Melted Ice": 1425, "Deep Sand": 267,
+  "Grassy Mountain": 402, "Vine": 724,
+  "Mountain": 195,   // 官方该色仅有透明覆盖件；合成时退回 Dirt 基底
+};
+// 色号优先级（高优先级侧承载过渡；深水只接浅水，故水族最低）
+const WANG_PRIORITY_BY_NAME = {
+  "Deep Water": 1, "Melted Ice": 1, "Shallow Water": 2, "Sand": 3, "Deep Sand": 3,
+  "Grass": 4, "Dirt": 5, "Mountain": 5,
+};
+function terrainColor(terrain) { ensureProfileDerived(); return COLOR_ID_BY_NAME[TERRAIN_COLOR_NAME[terrain]] ?? 1; }
+function baseTileOf(terrain) { return BASE_TILE_BY_COLOR_NAME[TERRAIN_COLOR_NAME[terrain]] ?? 65; }
+function baseTileOfColor(colorId) {
+  const P = getProfile(); if (!P) return 65;
+  const c = P.colors.find(x => x.id === colorId);
+  return (c && BASE_TILE_BY_COLOR_NAME[c.name]) || 65;
+}
+function priorityOfColor(colorId) {
+  const P = getProfile(); if (!P) return 3;
+  const c = P.colors.find(x => x.id === colorId);
+  return (c && WANG_PRIORITY_BY_NAME[c.name]) ?? 3;
+}
+// 当前季节的角位表（官方秋季为旧版布局，单列覆盖表）
+function activeCornerTable() {
+  const P = getProfile(); if (!P) return null;
+  const by = P.cornerTableBySeason;
+  return (by && by[lpcSeasonName()]) || P.cornerTable;
+}
 
 const lpcCellCache = new Map();
 function lpcCell(id) {
@@ -73,45 +106,299 @@ function lpcCell(id) {
   lpcCellCache.set(id, out);
   return out;
 }
+// 旋转 tile（补齐缺失键位/缺失画风: 净边过渡 tile 旋转后即得其余方向）
+const lpcCellRotCache = new Map();
+function lpcCellRot(id, rot) {
+  if (!rot) return lpcCell(id);
+  const k = id + ":" + rot;
+  if (lpcCellRotCache.has(k)) return lpcCellRotCache.get(k);
+  const out = mkCanvas(TILE, TILE);
+  const ctx = out.getContext("2d");
+  ctx.translate(TILE / 2, TILE / 2);
+  ctx.rotate(rot * Math.PI / 2);
+  ctx.drawImage(lpcCell(id), -TILE / 2, -TILE / 2);
+  lpcCellRotCache.set(k, out);
+  return out;
+}
 function swapSeason(idx) {
   if (idx === currentSeason) return;
   currentSeason = idx;
   lpcCellCache.clear();
+  lpcCellRotCache.clear();
+  edgePickCache.clear();
+  bestTileCache.clear();
+  baseStripCache = null;
 }
 
-// Wang 角位计算: 自身色 + 8 邻居色 → "TR,BR,BL,TL" 查 wang 表选贴图
-// WANG_DATA 由 wang_data.js script 标签同步加载（不依赖 fetch）
-function getWangTable() {
-  if (typeof window !== "undefined" && window.WANG_DATA) return window.WANG_DATA;
-  return null;
+// ===== 过渡贴图变体优选 =====
+// 同一角点 key 在表里可能对应多种画风的 tile（实测: 1794/1731 一族朝水边是净纯水,
+// 1857/1792 一族朝水边画成渐变滩——与纯水基底相邻会浮出一条 114 色差的水线）。
+// 候选 = 本键 id + 旋转匹配(色 6≡8 等价)的其他键 id，按"两端角同色的边条 ≈ 该色基底"
+// 打分选最一致者；净边旋转变体可补齐混合画风留下的缺口
+let edgePickCache = new Map();
+let baseStripCache = null;
+function edgeStripOf(canvas, side) {
+  const box = side === "N" ? [0, 0, TILE, 2] : side === "S" ? [0, TILE - 2, TILE, 2]
+    : side === "W" ? [0, 0, 2, TILE] : [TILE - 2, 0, 2, TILE];
+  const d = canvas.getContext("2d").getImageData(box[0], box[1], box[2], box[3]).data;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 10) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; } }
+  return [r / Math.max(1, n), g / Math.max(1, n), b / Math.max(1, n)];
 }
+function baseStrips() {
+  if (baseStripCache) return baseStripCache;
+  baseStripCache = {};
+  const P = getProfile();
+  if (P) {
+    for (const c of P.colors) {
+      baseStripCache[c.id] = null;   // 延迟到使用时按基色计算
+    }
+  }
+  return baseStripCache;
+}
+function baseStripsOf(colorId) {
+  const all = baseStrips();
+  if (all[colorId]) return all[colorId];
+  const cell = lpcCell(baseTileOfColor(colorId));
+  all[colorId] = { N: edgeStripOf(cell, "N"), S: edgeStripOf(cell, "S"), E: edgeStripOf(cell, "E"), W: edgeStripOf(cell, "W") };
+  return all[colorId];
+}
+// 每条边拆成两半, 各贴一个角: N 左半=TL 右半=TR; S 左=BL 右=BR; W 上=TL 下=BL; E 上=TR 下=BR
+function halfStrips(canvas) {
+  const g = canvas.getContext("2d");
+  const mean = (x, y, w, h) => {
+    const d = g.getImageData(x, y, w, h).data;
+    let r = 0, gg = 0, b = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 10) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; } }
+    return [r / Math.max(1, n), gg / Math.max(1, n), b / Math.max(1, n)];
+  };
+  const H = TILE / 2;
+  return {
+    NL: mean(0, 0, H, 2), NR: mean(H, 0, H, 2),
+    SL: mean(0, TILE - 2, H, 2), SR: mean(H, TILE - 2, H, 2),
+    WT: mean(0, 0, 2, H), WB: mean(0, H, 2, H),
+    ET: mean(TILE - 2, 0, 2, H), EB: mean(TILE - 2, H, 2, H),
+  };
+}
+const colorDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const rotKeyOnce = k => { const c = k.split(","); return c[3] + "," + c[0] + "," + c[1] + "," + c[2]; };
+
+function pickTileForCorners(corners, own, table) {
+  const key = corners.join(",");
+  if (edgePickCache.has(key)) return edgePickCache.get(key);
+  const cands = [];
+  if (table[key]) for (const id of table[key]) cands.push({ id, rot: 0 });
+  // 旋转补位: 作者缺失的角位方向可由同族其他键旋转得到
+  for (const K of Object.keys(table)) {
+    let rk = K;
+    for (let r = 1; r < 4; r++) {
+      rk = rotKeyOnce(rk);
+      if (rk === key) { for (const id of table[K]) cands.push({ id, rot: r }); break; }
+    }
+  }
+  let best = null, bestD = Infinity;
+  // 每个角楔贴两条半边, 半边颜色应接近该角颜色族的基底（这样角部画风也被打分）
+  const cornerHalf = [["NR", "ET"], ["SR", "EB"], ["SL", "WB"], ["NL", "WT"]]; // TR,BR,BL,TL
+  const sideOf = { N: "N", S: "S", E: "E", W: "W", NR: "N", NL: "N", SR: "S", SL: "S", ET: "E", EB: "E", WT: "W", WB: "W" };
+  for (const c of cands) {
+    let d = c.rot * 0.5;
+    const hs = halfStrips(lpcCellRot(c.id, c.rot));
+    for (let i = 0; i < 4; i++) {
+      const base = baseStripsOf(corners[i]);
+      if (!base) continue;
+      for (const h of cornerHalf[i]) d += colorDist(hs[h], base[sideOf[h]]);
+    }
+    if (d < bestD) { bestD = d; best = c; }
+  }
+  if (!best && table[key] && table[key].length) best = { id: table[key][0], rot: 0 };
+  edgePickCache.set(key, best);
+  return best;
+}
+
+// 权威角位表（来自 terrain_profile.js，由官方 tsx 生成）
+function getWangTable() {
+  const ct = activeCornerTable();
+  return ct ? { cornerTable: ct } : null;
+}
+// Tiled WangFiller 式最佳匹配选块：表里没有精确角位组合（三色交点等）时，
+// 对全表按角点重合数评分取最优 tile，任何配置都有解。
+// 规则: 角点吻合 自身色+3 / 外来色+2，非吻合但含自身色+1（本格中心应是自身地形）；
+// 候选限定含自身色的键；纯色键不参与（内部格由基底直出）；
+// 官方表中 0 = 无颜色(未约束)，仅作低分兜底匹配
+const bestTileCache = new Map();
+function bestMatchTileIds(corners, own, table) {
+  const cacheKey = corners.join(",") + "|" + own;
+  if (bestTileCache.has(cacheKey)) return bestTileCache.get(cacheKey);
+  let bestWithOwn = null, bestScore = -1;
+  for (const k of Object.keys(table)) {
+    const c = k.split(",").map(Number);
+    if (c[0] === c[1] && c[1] === c[2] && c[2] === c[3]) continue;
+    if (!c.includes(own)) continue;
+    let score = 0;
+    for (let i = 0; i < 4; i++) {
+      if (c[i] === 0) score += 0;                        // 未约束角: 不加分
+      else if (c[i] === corners[i]) score += corners[i] === own ? 3 : 2;
+      else if (c[i] === own) score += 1;
+    }
+    if (score > bestScore) { bestScore = score; bestWithOwn = table[k]; }
+  }
+  bestTileCache.set(cacheKey, bestWithOwn);
+  return bestWithOwn;
+}
+
+// 内角圆弧印章（全表像素扫描发现，未收录于 wang 表）：
+// 165/171/229/235 = 透明底水色扇形楔（任意基底可用）；279/280 = 草底泥色扇形楔。
+// 内角（对角接触）格用"自身基底+印章"替代表内小三角楔，与外角弧形岸线风格统一。
+// 键为官方色号: 6=Shallow Water, 7=Deep Water, 8=Melted Ice, 3=Dirt
+const CORNER_STAMPS = {
+  6: { id: 165, corner: 3 },   // 水楔: 165 的扇形在 TL
+  7: { id: 165, corner: 3 },
+  8: { id: 165, corner: 3 },
+  3: { id: 279, corner: 2 },   // 泥楔(草底): 279 的扇形在 BL
+};
+// 把印章旋转到目标角（角序 0TR 1BR 2BL 3TL; 顺时针90°: idx+1）
+function stampFor(cornerIdx, foreign, own) {
+  const st = CORNER_STAMPS[foreign];
+  if (!st) return null;
+  if (foreign === 3 && own !== 1) return null;   // 泥楔印章是草底，仅草(Grass=1)可用
+  const rot = (cornerIdx - st.corner + 4) % 4;
+  // corner: 绘制时只取扇形所在象限（印章其他象限可能有作者画的杂色装饰，一并裁掉）
+  return { id: st.id, rot, corner: cornerIdx };
+}
+
+// 直角拐角合成贴图（三外色角 = 拐角格被水三面包围）:
+// 素材里这组 tile 的自色残部仅 1-2%（"几乎全淹"画风），没有可见沙角。
+// 合成 = 自身基底纹理 + 外色基底纹理按象限对角切割 + 2px 抖动边，
+// 对角边界(如 TR 角: (16,0)→(32,16))与两侧岸线的半格水线精确衔接
+const diagQuarterCache = new Map();
+function diagQuarterTile(terrain, foreign, ownCornerIdx) {
+  const key = terrain + ":" + foreign + ":" + ownCornerIdx + ":" + lpcSeasonName();
+  if (diagQuarterCache.has(key)) return diagQuarterCache.get(key);
+  const out = mkCanvas(TILE, TILE);
+  const ctx = out.getContext("2d");
+  ctx.drawImage(lpcCell(baseTileOf(terrain)), 0, 0);
+  const fBase = lpcCell(baseTileOfColor(foreign)).getContext("2d").getImageData(0, 0, TILE, TILE).data;
+  const img = ctx.getImageData(0, 0, TILE, TILE);
+  // own 象限边界线: TR: x-y=16(own: >) / BR: x+y=48(own: >) / BL: y-x=16(own: >) / TL: x+y=16(own: <)
+  const side = (x, y) => {
+    if (ownCornerIdx === 0) return x - y - 16;
+    if (ownCornerIdx === 1) return x + y - 48;
+    if (ownCornerIdx === 2) return y - x - 16;
+    return 16 - x - y;
+  };
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      const s = side(x, y);
+      if (s > 1) continue;                                  // own 象限保留
+      const dither = s > -2 && ((x + y) % 2 === 0);          // 边界 2px 抖动
+      if (s <= -2 || dither) {
+        const i = (y * TILE + x) * 4;
+        img.data[i] = fBase[i];
+        img.data[i + 1] = fBase[i + 1];
+        img.data[i + 2] = fBase[i + 2];
+        img.data[i + 3] = 255;
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  diagQuarterCache.set(key, out);
+  return out;
+}
+
+// 合成圆弧角贴图（表内无对应画风的角位）: 自身基底 + 外色基底按四分之一圆切入 + 抖动边
+const synthDiscCache = new Map();
+function synthDiscTile(terrain, foreign, cornerIdxs, radius) {
+  const key = terrain + ":" + foreign + ":" + cornerIdxs.join("") + ":" + radius + ":" + lpcSeasonName();
+  if (synthDiscCache.has(key)) return synthDiscCache.get(key);
+  const out = mkCanvas(TILE, TILE);
+  const ctx = out.getContext("2d");
+  ctx.drawImage(lpcCell(baseTileOf(terrain)), 0, 0);
+  const fBase = lpcCell(baseTileOfColor(foreign)).getContext("2d").getImageData(0, 0, TILE, TILE).data;
+  const img = ctx.getImageData(0, 0, TILE, TILE);
+  const cx = [TILE, TILE, 0, 0], cy = [0, TILE, TILE, 0];   // 角点坐标 TR,BR,BL,TL
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      for (const ci of cornerIdxs) {
+        const d = Math.hypot(x + 0.5 - cx[ci], y + 0.5 - cy[ci]);
+        const rim = Math.abs(d - radius) < 2 && ((x + y) % 2 === 0);
+        if (d < radius - 2 || rim) {
+          const i = (y * TILE + x) * 4;
+          img.data[i] = fBase[i]; img.data[i + 1] = fBase[i + 1]; img.data[i + 2] = fBase[i + 2]; img.data[i + 3] = 255;
+          break;
+        }
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  synthDiscCache.set(key, out);
+  return out;
+}
+
 function wangLookup(tx, ty, tiles, mapW, mapH) {
   const WT = getWangTable();
-  if (!WT) return -1;
+  if (!WT) return null;
   const idx = ty * mapW + tx;
   const terrain = tiles[idx];
-  const own = TERRAIN_WANG_COLOR[terrain] ?? 1;
+  const own = terrainColor(terrain);
   function at(x, y) {
     if (x < 0 || y < 0 || x >= mapW || y >= mapH) return own;
-    return TERRAIN_WANG_COLOR[tiles[y * mapW + x]] ?? 1;
+    return terrainColor(tiles[y * mapW + x]);
   }
   const N = at(tx, ty - 1), NE = at(tx + 1, ty - 1), E = at(tx + 1, ty);
   const SE = at(tx + 1, ty + 1), S = at(tx, ty + 1), SW = at(tx - 1, ty + 1), W = at(tx - 1, ty), NW = at(tx - 1, ty - 1);
-  const TR = NE !== own ? NE : (N !== own ? N : (E !== own ? E : own));
-  const BR = SE !== own ? SE : (S !== own ? S : (E !== own ? E : own));
-  const BL = SW !== own ? SW : (S !== own ? S : (W !== own ? W : own));
-  const TL = NW !== own ? NW : (N !== own ? N : (W !== own ? W : own));
+  // 角点级联（对角优先）+ 优先级过滤（只承载更低优先级地形的过渡）。
+  // 对角优先让凹角（海湾/山坳内角）的对角格带上小角贴图完成圆角；
+  // 对角渗漏问题由优先级过滤根治（低优先级侧恒为纯色，如水格永远纯水）
+  const cornerOf = (d, a, b) => {
+    const c = d !== own ? d : (a !== own ? a : (b !== own ? b : own));
+    if (c !== own && priorityOfColor(c) > priorityOfColor(own)) return own;
+    return c;
+  };
+  const TR = cornerOf(NE, N, E);
+  const BR = cornerOf(SE, S, E);
+  const BL = cornerOf(SW, S, W);
+  const TL = cornerOf(NW, N, W);
+  const corners = [TR, BR, BL, TL];
 
   // 纯内部（四角同色）→ 用已验证基底
   if (TR === own && BR === own && BL === own && TL === own) {
-    return BASE_TILE_OVERRIDE[terrain] ?? 65;
+    return { id: baseTileOf(terrain), rot: 0 };
   }
 
-  // 过渡区 → 查 Wang 表
-  const key = [TR, BR, BL, TL].join(",");
-  const ids = WT.cornerTable[key];
-  if (ids && ids.length > 0) return ids[(tx * 31 + ty * 57) % ids.length];
-  return BASE_TILE_OVERRIDE[terrain] ?? 65;
+  // 内角（仅一个外色角 = 对角接触）→ 自身基底 + 扇形印章，与外角弧线风格统一。
+  // 对角棋盘角（两对角同色外色，拼接表无对应贴图，近似选块会把整格画成异色）
+  // → 基底 + 双对角印章
+  const foreignIdx = [0, 1, 2, 3].filter(i => corners[i] !== own);
+  const sameForeign = foreignIdx.length > 0 &&
+    foreignIdx.every(i => corners[i] === corners[foreignIdx[0]]);
+  if (foreignIdx.length === 1) {
+    const st = stampFor(foreignIdx[0], corners[foreignIdx[0]], own);
+    if (st) return { id: baseTileOf(terrain), rot: 0, stamps: [st] };
+    return { synthDisc: { terrain, foreign: corners[foreignIdx[0]], corners: [foreignIdx[0]], radius: 14 } };
+  }
+  if (foreignIdx.length === 2 && Math.abs(foreignIdx[0] - foreignIdx[1]) === 2 && sameForeign) {
+    const st1 = stampFor(foreignIdx[0], corners[foreignIdx[0]], own);
+    const st2 = stampFor(foreignIdx[1], corners[foreignIdx[1]], own);
+    if (st1 && st2) return { id: baseTileOf(terrain), rot: 0, stamps: [st1, st2] };
+    return { synthDisc: { terrain, foreign: corners[foreignIdx[0]], corners: foreignIdx, radius: 16 } };
+  }
+  if (foreignIdx.length === 3 && sameForeign) {
+    // 直角拐角（三面环外色）: 合成象限对角切割，保留可见的自身色角
+    return { diagQuarter: { foreign: corners[foreignIdx[0]], ownCorner: [0, 1, 2, 3].find(i => corners[i] === own) }, terrain };
+  }
+  if (foreignIdx.length === 4 && sameForeign) {
+    return { synthDisc: { terrain, foreign: corners[0], corners: [0, 1, 2, 3], radius: 14 } };
+  }
+
+  // 过渡区 → 变体优选（精确键 + 旋转补位，按边条一致性打分）；无候选再全表最佳匹配
+  const key = corners.join(",");
+  if (corners.includes(own) || WT.cornerTable[key]) {
+    const pick = pickTileForCorners(corners, own, WT.cornerTable);
+    if (pick) return pick;
+  }
+  const ids = bestMatchTileIds(corners, own, WT.cornerTable);
+  if (ids && ids.length > 0) return { id: ids[(tx * 31 + ty * 57) % ids.length], rot: 0 };
+  return { id: baseTileOf(terrain), rot: 0 };
 }
 
 function drawTerrainTile(ctx, terrain, tx, ty, px, py, tiles, mapW, mapH) {
@@ -119,9 +406,24 @@ function drawTerrainTile(ctx, terrain, tx, ty, px, py, tiles, mapW, mapH) {
   if (entry) {
     let drawn = false;
     if (LpcSheets[lpcSeasonName()]) {
-      const tileId = wangLookup(tx, ty, tiles, mapW, mapH);
-      if (tileId >= 0) {
-        ctx.drawImage(lpcCell(tileId), px, py);
+      const spec = wangLookup(tx, ty, tiles, mapW, mapH);
+      if (spec && (spec.id >= 0 || spec.diagQuarter || spec.synthDisc)) {
+        if (spec.diagQuarter) {
+          ctx.drawImage(diagQuarterTile(spec.terrain, spec.diagQuarter.foreign, spec.diagQuarter.ownCorner), px, py);
+        } else if (spec.synthDisc) {
+          const sd = spec.synthDisc;
+          ctx.drawImage(synthDiscTile(sd.terrain, sd.foreign, sd.corners, sd.radius), px, py);
+        } else {
+          ctx.drawImage(lpcCellRot(spec.id, spec.rot), px, py);
+        }
+        if (spec.stamps) {
+          // 只绘制扇形所在的 16×16 象限，印章其余象限的杂色装饰一并裁掉
+          for (const st of spec.stamps) {
+            const qx = st.corner === 0 || st.corner === 1 ? TILE / 2 : 0;
+            const qy = st.corner === 0 || st.corner === 3 ? 0 : TILE / 2;
+            ctx.drawImage(lpcCellRot(st.id, st.rot), qx, qy, TILE / 2, TILE / 2, px + qx, py + qy, TILE / 2, TILE / 2);
+          }
+        }
         if (entry.tint) { ctx.fillStyle = entry.tint; ctx.fillRect(px, py, TILE, TILE); }
         drawn = true;
       }
@@ -388,7 +690,11 @@ function drawRoad(ctx, level, px, py, wx, wy, roadLevels, mapW, mapH) {
   }
 }
 
-const ResKind = { Tree: 0, BerryBush: 1, Mushroom: 2, Stone: 3, Herb: 4, FishSpot: 5 };
+// 资源种类编号必须与 C# Core/Enums.cs 的 ResKind 顺序一致（ResView 下发 (int)Kind）
+const ResKind = {
+  Tree: 0, BerryBush: 1, Mushroom: 2, Stone: 3, Herb: 4, FishSpot: 5,
+  WaterSpot: 6, FlaxPatch: 7, CopperVein: 8, IronVein: 9,
+};
 
 function drawResource(ctx, r, px, py) {
   switch (r.k) {

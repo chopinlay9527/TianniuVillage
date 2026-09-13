@@ -37,7 +37,7 @@ public sealed partial class Game
     public int CountFood()
     {
         int total = 0;
-        foreach (var id in new[] { "meal", "berries", "fish", "meat", "mushroom", "grain" })
+        foreach (var id in new[] { "meal", "berries", "fish", "meat", "mushroom", "grain", "cheese", "jerky", "milk", "egg" })
             total += World.CountItem(id);
         return total;
     }
@@ -160,7 +160,7 @@ public sealed partial class Game
         }
         if (World.BuildingsOf("weaver").Any() && World.CountItem("cloth") < clothTarget)
         {
-            if (World.CountItem("fiber") >= 2 &&
+            if ((World.CountItem("fiber") >= 2 || World.CountItem("wool") >= 2) &&
                 Jobs.ClaimedCount(JobKind.Weave) + Jobs.OpenCount(JobKind.Weave) < 1)
             {
                 var wv = World.BuildingsOf("weaver").First();
@@ -484,6 +484,9 @@ public sealed partial class Game
                 "探明了铁矿脉，建一座铁矿坑来开采"),
             ("pen", !World.Buildings.Any(b => b.Key == "pen") && HasTech("domestication"),
                 "猎人们带回了幼崽，建一座畜栏来饲养"),
+            ("quarry", !World.Buildings.Any(b => b.Key == "quarry") && pop >= 8
+                     && World.Resources.Values.Any(n => n.Kind == ResKind.StoneOutcrop && n.Amount > 0),
+                "山里石料充足，建一座采石场就近开采"),
             ("ranch", !World.Buildings.Any(b => b.Key == "ranch") && HasTech("domestication") && pop >= 8 && World.Buildings.Any(b => b.Key == "pen" && b.LivestockCount > 0),
                 "畜栏里的牲畜越来越多，建一座畜牧场来扩大规模"),
             ("herbgarden", !World.Buildings.Any(b => b.Key == "herbgarden") && pop >= 5,
@@ -558,7 +561,7 @@ public sealed partial class Game
         }
         World.Buildings.Add(b);
         Log($"{reason}。村民们在村边选好了新{def.NameZh}的位置，需要的材料会陆续搬过去。", LogSeverity.Important);
-        _pendingBuildSites.Add((b.X, b.Y));
+        World.RebuildBlocked();
         LastBuildFail = "";
         return true;
     }
@@ -637,8 +640,24 @@ public sealed partial class Game
                 if (World.Resources.ContainsKey(map.Index(tx, ty))) return false;
             }
         if (def.NeedsWaterAdjacent && !HasAdjacent(x, y, def.W, def.H, t => t is Terrain.Water or Terrain.DeepWater)) return false;
-        if (def.NeedsStoneAdjacent && !HasAdjacent(x, y, def.W, def.H, t => t is Terrain.Mountain or Terrain.Highland)) return false;
+        if (def.NeedsStoneAdjacent &&
+            !HasAdjacent(x, y, def.W, def.H, t => t is Terrain.Mountain or Terrain.Highland) &&
+            !HasAdjacentResource(x, y, def.W, def.H, ResKind.StoneOutcrop)) return false;
         return true;
+    }
+
+    private bool HasAdjacentResource(int x, int y, int w, int h, ResKind kind)
+    {
+        foreach (var n in World.Resources.Values)
+        {
+            if (n.Kind != kind || n.Amount <= 0) continue;
+            if (n.X >= x - 1 && n.X <= x + w && n.Y >= y - 1 && n.Y <= y + h)
+            {
+                if (n.X > x - 1 && n.X < x + w && n.Y > y - 1 && n.Y < y + h) continue;
+                return true;
+            }
+        }
+        return false;
     }
 
     private bool HasAdjacent(int x, int y, int w, int h, Func<Terrain, bool> pred)
@@ -691,14 +710,16 @@ public sealed partial class Game
             if (v.IllnessDaysLeft <= 0)
             {
                 v.Ill = false;
+                v.Disease = DiseaseType.None;
                 v.AddMood("大病初愈", -4f, 24f);
                 Log($"{v.Name}的病终于好了", LogSeverity.Normal);
                 continue;
             }
             if (World.CountItem("herb") >= 1 && Tick % 4 == 0)
             {
+                float herbBoost = World.BuildingsOf("herbgarden").Any() ? Balance.HerbGardenBoost : 1f;
                 World.TryTakeItem("herb", 1);
-                v.IllnessDaysLeft = Math.Max(0.5f, v.IllnessDaysLeft * (HasTech("herbalism") ? 0.5f : 0.75f));
+                v.IllnessDaysLeft = Math.Max(0.5f, v.IllnessDaysLeft * (HasTech("herbalism") ? 0.5f : 0.75f) / herbBoost);
             }
         }
     }

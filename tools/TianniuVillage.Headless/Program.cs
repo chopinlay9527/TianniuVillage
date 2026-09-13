@@ -36,8 +36,14 @@ if (args.Length > 0 && args[0] == "events")
 
 if (args.Length > 0 && args[0] == "window")
 {
-    int fromDay = int.Parse(args[1]);
-    int toDay = int.Parse(args[2]);
+    if (args.Length < 3 ||
+        !int.TryParse(args[1], out int fromDay) ||
+        !int.TryParse(args[2], out int toDay) ||
+        fromDay < 0 || toDay < fromDay)
+    {
+        Console.WriteLine("用法：window <起始天> <结束天>");
+        return;
+    }
     var wg = Game.NewGame(20260908);
     int wTotal = toDay * Balance.MinutesPerDay;
     int wSeq = 0;
@@ -226,7 +232,9 @@ static void RunAudit()
             lastSeq = Math.Max(lastSeq, log.Seq);
             string? tag = log.Text switch
             {
-                var t when t.Contains("倒下") || t.Contains("冻死") || t.Contains("不治") || t.Contains("离开了") || t.Contains("葬") => "死亡",
+                // Kill() 统一发射「…，享年X岁」，是唯一可靠的死亡标记；
+                // 「倒下/冻死/不治」等死因措辞与「离开了」（商人/狼群离场）会误报，不再单独匹配
+                var t when t.Contains("享年") => "死亡",
                 var t when t.Contains("结为夫妇") => "结婚",
                 var t when t.Contains("怀孕") => "怀孕",
                 var t when t.Contains("诞下") => "出生",

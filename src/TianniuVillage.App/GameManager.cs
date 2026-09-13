@@ -4,8 +4,16 @@ namespace TianniuVillage.App;
 
 public sealed class GameManager
 {
+    public readonly object SyncRoot = new();
     public Game Game { get; private set; } = Game.NewGame(20260908);
-    public float Speed { get; set; } = 1f;
+
+    private int _speedBits = BitConverter.SingleToInt32Bits(1f);
+    public float Speed
+    {
+        get => BitConverter.Int32BitsToSingle(Interlocked.CompareExchange(ref _speedBits, 0, 0));
+        set => Interlocked.Exchange(ref _speedBits, BitConverter.SingleToInt32Bits(value));
+    }
+
     public int LastLogSeq;
     public int PendingSaveDays;
     public event Action<string>? OnStatus;
@@ -81,6 +89,8 @@ public sealed class GameManager
     }
 
     public object BuildInit() => Game.BuildInit();
+
+    public object BuildOverview() => Game.BuildOverview();
 
     public object BuildUpdate()
     {

@@ -8,5 +8,6 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/TianniuVillage.Headless/TianniuVillage.Headless.csproj" />
+    <Project Path="tools/TianniuVillage.TileSetImport/TianniuVillage.TileSetImport.csproj" />
   </Folder>
 </Solution>

@@ -33,8 +33,9 @@ public sealed class SimulationHost : IDisposable
         var stopwatch = Stopwatch.StartNew();
         long lastTicks = stopwatch.ElapsedTicks;
         double carry = 0;
-        double acc = 0;
+        long nextUpdateTicks = stopwatch.ElapsedTicks;
         const double secondsPerTick = 1.0 / Balance.TicksPerSecond;
+        long updateIntervalTicks = (long)(0.1 * Stopwatch.Frequency);
 
         while (_running)
         {
@@ -45,7 +46,8 @@ public sealed class SimulationHost : IDisposable
             double speed = _manager.Speed;
             if (speed <= 0.01f)
             {
-                _wakeup.WaitOne(100);
+                try { _wakeup.WaitOne(100); }
+                catch (ObjectDisposedException) { break; }
                 lastTicks = stopwatch.ElapsedTicks;
                 carry = 0;
                 continue;
@@ -56,27 +58,27 @@ public sealed class SimulationHost : IDisposable
             carry -= steps * secondsPerTick;
             steps = Math.Min(steps, Balance.TicksPerSecond * 20);
 
-            bool doUpdate = false;
-            for (int i = 0; i < steps; i++)
+            string? updateJson = null;
+            string? saveJson = null;
+            lock (_manager.SyncRoot)
             {
-                _manager.Game.Step();
-                if (_manager.ShouldAutosave())
+                for (int i = 0; i < steps; i++)
                 {
-                    _manager.Save();
+                    _manager.Game.Step();
+                    if (_manager.ShouldAutosave())
+                        saveJson = SaveService.Serialize(_manager.Game);
                 }
-                acc += secondsPerTick;
-                if (acc >= 0.1)
+
+                if (now >= nextUpdateTicks)
                 {
-                    acc = 0;
-                    doUpdate = true;
+                    nextUpdateTicks = now + updateIntervalTicks;
+                    updateJson = JsonSerializer.Serialize(_manager.BuildUpdate());
                 }
             }
 
-            if (doUpdate)
-            {
-                string json = JsonSerializer.Serialize(_manager.BuildUpdate());
-                UpdateReady?.Invoke(json);
-            }
+            if (saveJson != null)
+                File.WriteAllText(_manager.AutosavePath, saveJson);
+            if (updateJson != null) UpdateReady?.Invoke(updateJson);
         }
     }
 
@@ -85,6 +87,8 @@ public sealed class SimulationHost : IDisposable
     public void Dispose()
     {
         Stop();
+        if (_thread != null && _thread.IsAlive)
+            _thread.Join(1000);
         _wakeup.Dispose();
     }
 }

@@ -1,0 +1,48 @@
+============================================================
+LPC Revised — Fully Configured 4-Seasons Tilesets for Tiled Map Editor
+============================================================
+
+来源 (Source)
+  https://opengameart.org/content/lpc-revised-fully-configured-4-seasons-tilesets-for-tiled-map-editor
+  包文件: lpc-revised-exterior-tilesets.zip (3.5 MB, 2024)
+  另外地: https://github.com/ElizaWy/LPC (LPC Revised 原始素材库)
+
+许可 (License)
+  CC-BY 3.0 与 OGA-BY 3.0 双许可
+  https://creativecommons.org/licenses/by/3.0/
+  https://opengameart.org/content/oga-by-30-faq
+
+署名 (Copyright/Attribution Notice, 逐字引用自 OGA 页面)
+  JaidynReiman for compiling the assets from LPC Revised and configuring the
+  Tiled Map Editor tilesets for it. Also created a winter version of the bushes
+  with a simple palette recolor to make the collision easier to convert between
+  seasons. Original LPC Revised (https://github.com/ElizaWy/LPC) asset
+  contributors include Eliza Wyatt (DeathsDarling), Lanea Zimmerman (Sharm),
+  Stephen Challener (Redshrike), Johannes Sjölund (Wulax), BlueCarrot16,
+  BenCreating, Durrani, YuriNikolai and Craftpix.net 2D Game Assets.
+  https://github.com/ElizaWy/LPC/blob/main/Credits.txt
+
+原始 LPC Revised 贡献者 (逐字引用自 ElizaWy/LPC Credts.txt)
+  Eliza Wyatt (DeathsDarling)
+  Lanea Zimmerman (Sharm)
+  Stephen Challener (Redshrike)
+  Johannes Sjölund (Wulax)
+  BlueCarrot16
+  BenCreating
+  Durrani
+  YuriNikolai
+  Craftpix.net 2D Game Assets
+
+本目录内容 (Contents of this directory)
+  lpc-tileset-terrain-spring.tsx    官方 Tiled 地形图集定义 (含 Terrain wangset, 415 wangtile)
+  lpc-tileset-terrain-summer.tsx    同上 (夏季)
+  lpc-tileset-terrain-autumn-old.tsx 同上 (秋季; 官方归档内文件名如此)
+  lpc-tileset-terrain-winter.tsx    同上 (冬季)
+  lpc-tileset-buildings.tsx         官方建筑图集定义 (含 Walls wangset)
+
+  说明: 配套 PNG (lpc-tileset-terrain-<season>.png / lpc-tileset-buildings.png)
+  与本仓库 ../lpc-terrain-<season>.png 为同一官方文件 (字节数一致)，
+  故未重复归档；terrain_profile.json 由上述 .tsx 解析生成。
+
+本目录文件不入 NPM/构建产物之外的再分发，仅随本游戏使用；
+任何再分发须保留本文件全部署名内容。

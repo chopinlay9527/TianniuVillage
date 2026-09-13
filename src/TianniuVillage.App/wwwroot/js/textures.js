@@ -19,14 +19,17 @@ const TEX = {
   // 写法 B: { tiles: ["t0","t1"], tint: "rgba(...)" }  → 素材格(多个则随机混铺) + 可选罩色
   // 任意写法可加 noise: 0.07 → 杂色强度（每格随机撒 6 个明暗 1px 噪点，0=关闭）
   terrain: {
-    // Wang Set 驱动：贴图由 wang_table.json 拼接规则自动选取，此处仅配置效果参数
-    deepWater:    { waves: false },                        // 深水(冬结冰由表处理)
-    shallowWater: { waves: false },                        // 浅水
-    sand:         { noise: 0.03 },                         // 沙滩
-    grass:        { noise: 0.03 },                         // 草地
-    forest:       { tint: "rgba(20,60,20,0.18)", noise: 0.03 }, // 森林(草+罩)
-    highland:     { noise: 0.04 },                         // 高地(Dirt色,山前过渡)
-    mountain:     { noise: 0.03 },                         // 山
+    // 官方 Wang Set 驱动（terrain_profile.js）：贴图由作者定义的角位规则自动选取，
+    // 此处仅配置效果参数。深水/浅水为官方独立色号（6/7，有真实过渡），无需罩色
+    deepWater:    { waves: false },                        // 深水 (Deep Water 7)
+    shallowWater: { waves: false },                        // 浅水 (Shallow Water 6)
+    sand:         { noise: 0.03 },                         // 沙滩 (Sand 2)
+    grass:        { noise: 0.03 },                         // 草地 (Grass 1)
+    forest:       { tint: "rgba(20,60,20,0.18)", noise: 0.03 }, // 森林 = Grass + 罩色
+    highland:     { noise: 0.04 },                         // 高地 (Dirt 3)
+    mountain:     { tint: "rgba(40,26,16,0.34)", noise: 0.03 }, // 山 = Dirt + 岩石罩色
+    //    (官方 Mountain 色仅有透明覆盖件、无过渡画，作者模型中山是崖壁构件；
+    //     本项目沿用"地形"表示，故归入 Dirt 并以罩色区分)
   },
 
   // ---------- 资源物件 ----------

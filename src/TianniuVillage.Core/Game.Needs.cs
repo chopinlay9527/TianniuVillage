@@ -2,7 +2,7 @@ namespace TianniuVillage.Core;
 
 public sealed partial class Game
 {
-    private static readonly string[] FoodPreference = ["meal", "cheese", "berries", "fish", "meat", "mushroom", "grain", "jerky"];
+    private static readonly string[] FoodPreference = ["meal", "cheese", "berries", "fish", "meat", "mushroom", "grain", "jerky", "milk", "egg"];
 
     private void UpdateNeeds(Villager v)
     {
@@ -122,7 +122,7 @@ public sealed partial class Game
             float d = Dist2(v.Pos, (node.X, node.Y));
             if (d < bestDist) { bestDist = d; best = node; }
         }
-        if (best == null || !TryWalkToDrink(v, ResourceWorkSpotPublic(best), Balance.DrinkRestoreWild))
+        if (best == null || !TryWalkToDrink(v, ResourceWorkSpot(best), Balance.DrinkRestoreWild))
         {
             if (well == null)
                 Log($"{v.Name}找不到可以取水的地方", LogSeverity.Important);

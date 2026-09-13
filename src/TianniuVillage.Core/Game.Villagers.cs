@@ -74,7 +74,6 @@ public sealed partial class Game
             if (v.Health <= 0) Kill(v, DeathCause.Starvation, "还是一个婴儿，没能熬过饥荒");
         }
         v.Age += 1f / 365f;
-        if (v.Age >= 7) { /* stage transitions handled by Stage property */ }
     }
 
     private bool TryFeedInfant()
@@ -166,9 +165,7 @@ public sealed partial class Game
 
     private bool ShouldWake(Villager v)
     {
-        bool daytime = MinuteOfDay >= Balance.WakeMinute && MinuteOfDay < Balance.SleepStartMinute;
-        if (daytime) return true;
-        return false;
+        return MinuteOfDay >= Balance.WakeMinute && MinuteOfDay < Balance.SleepStartMinute;
     }
 
     private void Decide(Villager v)

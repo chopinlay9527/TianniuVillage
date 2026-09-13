@@ -101,10 +101,12 @@ public sealed partial class Game
 
         a.SpouseId = b.Id;
         b.SpouseId = a.Id;
-        sharedHome.Occupants++;
-        if (a.HomeId != sharedHome.Id && a.HomeId != 0)
+        bool aInShared = a.HomeId == sharedHome.Id;
+        bool bInShared = b.HomeId == sharedHome.Id;
+        if (!(aInShared && bInShared)) sharedHome.Occupants++;
+        if (!aInShared && a.HomeId != 0)
             ReleaseHome(a);
-        if (b.HomeId != sharedHome.Id && b.HomeId != 0)
+        if (!bInShared && b.HomeId != 0)
             ReleaseHome(b);
         a.HomeId = sharedHome.Id;
         b.HomeId = sharedHome.Id;

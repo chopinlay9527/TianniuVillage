@@ -82,10 +82,34 @@ public class SaveLoadTests
         var loaded = SaveService.Load(path);
         File.Delete(path);
 
-        int popBefore = loaded.Villagers.Count(v => v.Alive);
+        int tickBefore = loaded.Tick;
+        long lastSeqBefore = loaded.Logs.Count > 0 ? loaded.Logs[^1].Seq : 0;
         for (int i = 0; i < 100; i++) loaded.Step();
         int popAfter = loaded.Villagers.Count(v => v.Alive);
+        long lastSeqAfter = loaded.Logs.Count > 0 ? loaded.Logs[^1].Seq : 0;
 
-        Assert.True(popAfter <= popBefore);
+        Assert.True(loaded.Tick > tickBefore, "载入后的世界应继续推进");
+        Assert.True(popAfter > 0, "载入后的世界不应开局暴毙");
+        Assert.True(lastSeqAfter > lastSeqBefore, "载入后的世界应产生新日志");
+    }
+
+    [Fact]
+    public void Load_RebuildsBlockedFromLoadedBuildings()
+    {
+        var game = Game.NewGame(314);
+        for (int i = 0; i < 2000; i++) game.Step();
+        var building = game.World.Buildings.First(b => b.State == BuildingState.Complete);
+        var outcrop = game.World.Resources.Values.First(n => n.Kind == ResKind.StoneOutcrop);
+
+        string path = Path.Combine(Path.GetTempPath(), $"tianniu_test_{Guid.NewGuid():N}.json");
+        SaveService.Save(game, path);
+        var loaded = SaveService.Load(path);
+        File.Delete(path);
+
+        var loadedB = loaded.World.Buildings.First(b => b.Id == building.Id);
+        Assert.True(loaded.World.Map.Blocked[loaded.World.Map.Index(loadedB.X, loadedB.Y)],
+            "读档后建筑格应被 Blocked 阻挡");
+        Assert.True(loaded.World.Map.Blocked[loaded.World.Map.Index(outcrop.X, outcrop.Y)],
+            "读档后石料堆格应被 Blocked 阻挡");
     }
 }

@@ -264,6 +264,11 @@ public sealed partial class Game
                 World.AddItem("stone", Balance.QuarryDailyStone);
                 if (Rng.Chance(0.1f)) Log("采石场开采出了一批石料", LogSeverity.Normal);
             }
+            if (b.Key == "herbgarden" && Tick % 1440 == 0 && World.CountItem("herb") < 20)
+            {
+                World.AddItem("herb", 2);
+                if (Rng.Chance(0.1f)) Log("药圃培育出了一批草药", LogSeverity.Normal);
+            }
         }
     }
 

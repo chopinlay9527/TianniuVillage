@@ -1,15 +1,13 @@
 bin/
 obj/
 *.user
-.vs/
-*.log
-
-# Build outputs
-publish/
-res/
-*.user
 *.suo
-.vs/
-bin/
-obj/
 *.log
+.vs/
+publish/
+TestResults/
+res/
+
+# 调试 / AI 会话产物
+.diag/
+.zcode/

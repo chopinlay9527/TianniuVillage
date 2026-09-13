@@ -15,12 +15,19 @@ public partial class MainForm : Form
         InitializeComponent();
 
         _host = new SimulationHost(_manager);
-        _commands = new CommandProcessor(_manager, PostInit, _ => { });
-        _host.UpdateReady += json => BeginInvoke(() =>
+        _commands = new CommandProcessor(_manager, PostInit, PostMessage);
+        _host.UpdateReady += json =>
         {
-            try { _webView.CoreWebView2.PostWebMessageAsJson(json); }
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    try { _webView.CoreWebView2.PostWebMessageAsJson(json); }
+                    catch { }
+                });
+            }
             catch { }
-        });
+        };
 
         KeyDown += (_, e) =>
         {
@@ -28,14 +35,29 @@ public partial class MainForm : Form
             {
                 e.SuppressKeyPress = true;
                 float cur = _manager.Speed;
-                SetSpeed(cur <= 0 ? _lastSpeed : 0f);
+                float next = cur <= 0 ? _lastSpeed : 0f;
+                SetSpeed(next);
+                NotifySpeedState(next);
             }
             else if (e.KeyCode >= Keys.D1 && e.KeyCode <= Keys.D5)
-                SetSpeed(e.KeyCode - Keys.D0);
+            {
+                float mult = e.KeyCode - Keys.D0;
+                SetSpeed(mult);
+                NotifySpeedState(mult);
+            }
         };
 
         BuildWebView();
-        FormClosed += (_, _) => _host.Stop();
+        FormClosed += (_, _) => { _host.Stop(); _host.Dispose(); };
+    }
+
+    private void NotifySpeedState(float mult)
+    {
+        try
+        {
+            _webView.CoreWebView2?.PostWebMessageAsJson($"{{\"type\":\"speedState\",\"value\":{mult}}}");
+        }
+        catch { }
     }
 
     public void SetSpeed(float mult)
@@ -44,13 +66,18 @@ public partial class MainForm : Form
         if (mult > 0) _lastSpeed = mult;
     }
 
-    private void PostInit(string json)
+    private void PostMessage(string json)
     {
         BeginInvoke(() =>
         {
             try { _webView.CoreWebView2.PostWebMessageAsJson(json); }
             catch { }
         });
+    }
+
+    private void PostInit(string json)
+    {
+        PostMessage(json);
         _host.Wake();
     }
 

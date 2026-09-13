@@ -24,6 +24,7 @@
       <span id="ti-merchant" class="tb-torch hidden" title="商人到访中">🐴</span>
     </div>
     <div class="tb-group tb-speed">
+      <button id="btn-overview" class="tb-btn" title="村庄全览（全部信息）">📊</button>
       <button id="btn-pause" class="tb-btn pause" title="暂停/继续（空格）">⏸</button>
       <button class="tb-btn spd active" data-spd="1">1×</button>
       <button class="tb-btn spd" data-spd="2">2×</button>
@@ -117,6 +118,7 @@
   <div id="detail-card" class="card hidden">
     <h3 class="card-title" id="dc-name">—</h3>
     <div id="dc-sub" class="dc-sub">—</div>
+    <div id="dc-family" class="dc-sub" style="display:none"></div>
     <div class="dc-bars">
       <div class="dc-bar"><span>饱食</span><div class="bar"><i id="b-satiety"></i></div></div>
       <div class="dc-bar"><span>饮水</span><div class="bar"><i id="b-thirst"></i></div></div>
@@ -128,6 +130,36 @@
     </div>
     <div id="dc-activity" class="dc-sub">—</div>
     <div id="dc-status" class="dc-sub" style="display:none;color:#e88"></div>
+  </div>
+
+  <div id="overview-modal" class="modal hidden">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <h2>📊 村庄全览</h2>
+        <span id="ov-time" class="ov-time">—</span>
+        <button id="ov-close" class="ov-close" title="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <nav class="ov-tabs">
+          <button class="otab active" data-tab="op-tab-overview">📋 总览</button>
+          <button class="otab" data-tab="op-tab-pop">👥 人口</button>
+          <button class="otab" data-tab="op-tab-housing">🏠 住房</button>
+          <button class="otab" data-tab="op-tab-storage">📦 仓储</button>
+          <button class="otab" data-tab="op-tab-harvest">🌾 收获</button>
+          <button class="otab" data-tab="op-tab-jobs">🛠 工事</button>
+          <button class="otab" data-tab="op-tab-tech">🔬 科技</button>
+        </nav>
+        <div class="opanes">
+          <div id="op-tab-overview" class="opane active"></div>
+          <div id="op-tab-pop" class="opane"></div>
+          <div id="op-tab-housing" class="opane"></div>
+          <div id="op-tab-storage" class="opane"></div>
+          <div id="op-tab-harvest" class="opane"></div>
+          <div id="op-tab-jobs" class="opane"></div>
+          <div id="op-tab-tech" class="opane"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="loading">甜牛村正在孕育世界……</div>
@@ -150,7 +182,7 @@ window.addEventListener("unhandledrejection", function (e) {
   __postErr("Promise: " + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
 });
 </script>
-<script src="assets/lpc/wang_data.js"></script>
+<script src="assets/lpc/terrain_profile.js"></script>
 <script src="js/textures.js"></script>
 <script src="js/pixels.js"></script>
 <script src="js/assets.js"></script>

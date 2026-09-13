@@ -153,7 +153,7 @@ public class RoadTests
         Assert.Equal(idx, job.TileIdx);
 
         game.World.Map.RoadWear[idx] = 0;
-        game.CompleteRoadRepairForTest(job);
+        game.CompleteRoadRepair(game.Villagers[0], job);
         Assert.Equal(0, game.World.Map.RoadWear[idx]);
     }
 

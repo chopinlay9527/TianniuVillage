@@ -41,7 +41,18 @@ public class SimulationTests
 
         for (int i = 0; i < 600; i++) game.Step();
 
+        Assert.True(v.Alive, "村民不应在饱食度衰减测试中饿死");
         Assert.True(v.Satiety < before, "饱食度应随时间下降");
+    }
+
+    [Fact]
+    public void GodPlague_AssignsPlagueDisease()
+    {
+        var game = Game.NewGame(20260908);
+        game.GodPlague();
+        var sick = game.Villagers.Where(v => v.Ill).ToList();
+        Assert.NotEmpty(sick);
+        Assert.All(sick, v => Assert.Equal(DiseaseType.Plague, v.Disease));
     }
 
     [Fact]

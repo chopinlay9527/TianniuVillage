@@ -7,65 +7,83 @@ public sealed class CommandProcessor
 {
     private readonly GameManager _manager;
     private readonly Action<string> _postInit;
-    private readonly Action<string> _postLog;
+    private readonly Action<string> _postMessage;
+    private long _lastJsErrorLogTicks;
 
-    public CommandProcessor(GameManager manager, Action<string> postInit, Action<string> postLog)
+    public CommandProcessor(GameManager manager, Action<string> postInit, Action<string> postMessage)
     {
         _manager = manager;
         _postInit = postInit;
-        _postLog = postLog;
+        _postMessage = postMessage;
     }
 
     public void Handle(string json)
     {
-        try
+        string? jsError = null;
+        lock (_manager.SyncRoot)
         {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            string type = root.GetProperty("type").GetString() ?? "";
-
-            switch (type)
+            try
             {
-                case "jserror":
-                    _manager.Game.Log("[系统] " + (root.TryGetProperty("msg", out var m) ? m.GetString() : "?"), LogSeverity.Debug);
-                    try
-                    {
-                        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TianniuVillage");
-                        Directory.CreateDirectory(dir);
-                        File.AppendAllText(Path.Combine(dir, "jserrors.log"),
-                            $"{DateTime.Now:HH:mm:ss} " + (root.TryGetProperty("msg", out var mm) ? mm.GetString() : "?") + Environment.NewLine);
-                    }
-                    catch { }
-                    break;
-                case "ready":
-                    _postInit(JsonSerializer.Serialize(_manager.BuildInit()));
-                    break;
-                case "speed":
-                    _manager.Speed = root.GetProperty("value").GetSingle();
-                    break;
-                case "newgame":
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                string type = root.GetProperty("type").GetString() ?? "";
+
+                switch (type)
                 {
-                    int seed = root.TryGetProperty("seed", out var s) ? s.GetInt32() : Random.Shared.Next(1, int.MaxValue);
-                    _manager.NewGame(seed);
-                    _postInit(JsonSerializer.Serialize(_manager.BuildInit()));
-                    break;
-                }
-                case "save":
-                    _manager.Save(root.TryGetProperty("name", out var n) ? n.GetString() : null);
-                    _manager.Game.Log("村庄已存档", LogSeverity.Normal);
-                    break;
-                case "load":
-                    if (_manager.LoadLatest() != null)
+                    case "jserror":
+                        jsError = root.TryGetProperty("msg", out var m) ? m.GetString() : "?";
+                        _manager.Game.Log("[系统] " + jsError, LogSeverity.Debug);
+                        break;
+                    case "ready":
                         _postInit(JsonSerializer.Serialize(_manager.BuildInit()));
-                    break;
-                case "god":
-                    HandleGod(root.GetProperty("action").GetString() ?? "");
-                    break;
+                        break;
+                    case "speed":
+                        _manager.Speed = root.GetProperty("value").GetSingle();
+                        break;
+                    case "newgame":
+                    {
+                        int seed = root.TryGetProperty("seed", out var s) ? s.GetInt32() : Random.Shared.Next(1, int.MaxValue);
+                        _manager.NewGame(seed);
+                        _postInit(JsonSerializer.Serialize(_manager.BuildInit()));
+                        break;
+                    }
+                    case "save":
+                        _manager.Save(root.TryGetProperty("name", out var n) ? n.GetString() : null);
+                        _manager.Game.Log("村庄已存档", LogSeverity.Normal);
+                        break;
+                    case "load":
+                        if (_manager.LoadLatest() != null)
+                            _postInit(JsonSerializer.Serialize(_manager.BuildInit()));
+                        break;
+                    case "god":
+                        HandleGod(root.GetProperty("action").GetString() ?? "");
+                        break;
+                    case "overview":
+                        _postMessage(JsonSerializer.Serialize(_manager.BuildOverview()));
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _manager.Game?.Log($"系统异常：{ex.Message}", LogSeverity.Debug);
             }
         }
-        catch (Exception ex)
+
+        if (jsError != null)
         {
-            _manager.Game?.Log($"系统异常：{ex.Message}", LogSeverity.Debug);
+            long now = DateTime.UtcNow.Ticks;
+            if (now - _lastJsErrorLogTicks >= TimeSpan.TicksPerSecond)
+            {
+                _lastJsErrorLogTicks = now;
+                try
+                {
+                    var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TianniuVillage");
+                    Directory.CreateDirectory(dir);
+                    File.AppendAllText(Path.Combine(dir, "jserrors.log"),
+                        $"{DateTime.Now:HH:mm:ss} " + jsError + Environment.NewLine);
+                }
+                catch { }
+            }
         }
     }
 

@@ -33,6 +33,19 @@ public sealed partial class Game
         return n;
     }
 
+    private bool TakeIngredients(params (string item, int count)[] ingredients)
+    {
+        for (int i = 0; i < ingredients.Length; i++)
+        {
+            var (item, count) = ingredients[i];
+            if (World.TryTakeItem(item, count)) continue;
+            for (int j = 0; j < i; j++)
+                World.AddItem(ingredients[j].item, ingredients[j].count);
+            return false;
+        }
+        return true;
+    }
+
     private bool Claim(Villager v, Job job)
     {
         var node = World.Resources.GetValueOrDefault(job.NodeId);
@@ -75,10 +88,8 @@ public sealed partial class Game
         if (job.Kind == JobKind.Smelt)
         {
             string ore = job.ItemId == "iron_ore" ? "iron_ore" : "copper_ore";
-            if (!World.TryTakeItem(ore, 2) || !World.TryTakeItem("log", 1))
+            if (!TakeIngredients((ore, 2), ("log", 1)))
             {
-                if (World.CountItem(ore) >= 2) World.AddItem(ore, 2);
-                if (World.CountItem("log") >= 1) World.AddItem("log", 1);
                 Jobs.Complete(job.Id);
                 return false;
             }
@@ -86,12 +97,12 @@ public sealed partial class Game
 
         if (job.Kind == JobKind.CraftTool)
         {
-            if (job.ItemId == "copper_tool" && (!World.TryTakeItem("copper", 1) || !World.TryTakeItem("plank", 1)))
+            if (job.ItemId == "copper_tool" && !TakeIngredients(("copper", 1), ("plank", 1)))
             {
                 Jobs.Complete(job.Id);
                 return false;
             }
-            if (job.ItemId == "iron_tool" && (!World.TryTakeItem("iron", 2) || !World.TryTakeItem("plank", 1)))
+            if (job.ItemId == "iron_tool" && !TakeIngredients(("iron", 2), ("plank", 1)))
             {
                 Jobs.Complete(job.Id);
                 return false;
@@ -395,9 +406,7 @@ public sealed partial class Game
         Jobs.Complete(job.Id);
     }
 
-    public void CompleteTendLivestockForTest(Villager v, Job job) => CompleteTendLivestock(v, job);
-
-    private void CompleteTendLivestock(Villager v, Job job)
+    internal void CompleteTendLivestock(Villager v, Job job)
     {
         var b = World.Buildings.FirstOrDefault(x => x.Id == job.BuildingId);
         if (b == null) return;
@@ -414,9 +423,7 @@ public sealed partial class Game
         }
     }
 
-    public void BeginCarryingForTest(Villager v, string item, int qty) => BeginCarrying(v, item, qty);
-
-    private void BeginCarrying(Villager v, string item, int qty)
+    internal void BeginCarrying(Villager v, string item, int qty)
     {
         v.CarryLoad[item] = v.CarryLoad.GetValueOrDefault(item) + qty;
         if (v.SelfTask == "store") return;
@@ -448,7 +455,7 @@ public sealed partial class Game
         }
     }
 
-    private static readonly string[] FoodItems = ["berries", "mushroom", "fish", "meat", "grain", "meal"];
+    private static readonly string[] FoodItems = ["berries", "mushroom", "fish", "meat", "grain", "meal", "milk", "egg"];
 
     private void DepositCarrying(Villager v)
     {
@@ -606,7 +613,6 @@ public sealed partial class Game
             World.RebuildBlocked();
             Log($"{BuildingDefs.All[b.Key].NameZh}落成了", LogSeverity.Important);
             AssignHomes();
-            if (_pendingBuildSites.Count > 0) _pendingBuildSites.Clear();
         }
     }
 
@@ -641,7 +647,10 @@ public sealed partial class Game
             BeginCarrying(v, "hide_coat", 1);
             return;
         }
-        BeginCarrying(v, "cloth", 1);
+        int yield = job.ConsumedItem == "wool"
+            ? Math.Max(2, (int)(2 * Balance.WoolToClothEfficiency))
+            : 1;
+        BeginCarrying(v, "cloth", yield);
     }
 
     private void CompleteSew(Villager v)
@@ -681,7 +690,7 @@ public sealed partial class Game
         }
     }
 
-    private void CompleteRoadRepair(Villager v, Job job)
+    internal void CompleteRoadRepair(Villager v, Job job)
     {
         if (World.Map.Roads[job.TileIdx] > 0)
         {
@@ -756,15 +765,16 @@ public sealed partial class Game
         World.TryTakeItem(protein, 2);
         World.TryTakeItem("grain", 1);
         World.TryTakeItem("water", 1);
+        job.ConsumedItem = protein;
         return true;
     }
 
-    private void RefundCookIngredients(Job job)
+    internal void RefundCookIngredients(Job job)
     {
         if (job.ItemId == "cheese") { World.AddItem("milk", 4); return; }
         if (job.ItemId == "jerky") { World.AddItem("meat", 3); World.AddItem("log", 1); return; }
         World.AddItem("grain", 1);
-        World.AddItem("berries", 2);
+        World.AddItem(string.IsNullOrEmpty(job.ConsumedItem) ? "berries" : job.ConsumedItem, 2);
         World.AddItem("water", 1);
     }
 
@@ -776,13 +786,25 @@ public sealed partial class Game
             World.TryTakeItem("hide", 3);
             return true;
         }
-        return World.TryTakeItem("fiber", 2);
+        if (World.CountItem("fiber") >= 2)
+        {
+            World.TryTakeItem("fiber", 2);
+            job.ConsumedItem = "fiber";
+            return true;
+        }
+        if (World.CountItem("wool") >= 2)
+        {
+            World.TryTakeItem("wool", 2);
+            job.ConsumedItem = "wool";
+            return true;
+        }
+        return false;
     }
 
-    private void RefundWeaveMaterials(Job job)
+    internal void RefundWeaveMaterials(Job job)
     {
         if (job.ItemId == "hide_coat") { World.AddItem("hide", 3); return; }
-        World.AddItem("fiber", 2);
+        World.AddItem(string.IsNullOrEmpty(job.ConsumedItem) ? "fiber" : job.ConsumedItem, 2);
     }
 
     private void FarmCellPhase(Villager v, Job job, int phase, string logText)

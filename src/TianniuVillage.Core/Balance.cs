@@ -35,11 +35,9 @@ public static class Balance
     public const float EatWhenSatietyBelow = 35f;
     public const float SleepWhenEnergyBelow = 22f;
     public const float RestWhenStaminaBelow = 18f;
-    public const float CriticalHealthBelow = 25f;
 
     public const float MoodBase = 68f;
     public const int MemoryCapacity = 50;
-    public const float MoodDecayDays = 2f;
 
     public const float FarmCropGrowDays = 26f;
     public const int FarmYieldPerCell = 6;
@@ -55,7 +53,6 @@ public static class Balance
     public const int FishYield = 3;
 
     public const int CookMinutesPerMeal = 60;
-    public const float JobClaimIntervalMinutes = 10f;
 
     public const float PregnancyChancePerDay = 0.03f;
     public const int PregnancyDays = 135;
@@ -103,13 +100,10 @@ public static class Balance
     public const int FlaxRegrowDays = 20;
     public const int WeaveMinutes = 45;
     public const int SewMinutes = 30;
-    public const float WinterClothPerPerson = 1f;
 
     public const int MineWorkMinutes = 300;
     public const int SmeltWorkMinutes = 60;
     public const int CraftWorkMinutes = 45;
-    public const int CopperToolDurability = 40;
-    public const int IronToolDurability = 80;
     public const float NoToolEfficiency = 1.0f;
 
     public const float ToolWearChance = 0.03f;
@@ -140,7 +134,6 @@ public static class Balance
     public const int FestivalFoodCost = 20;
     public const float FestivalHappinessBoost = 12f;
     public const float WoolToClothEfficiency = 1.5f;
-    public const float HideCoatWarmth = 0.6f;
     public const int MerchantVisitInterval = 30;
     public const int MerchantStayTicks = 1440;
 }

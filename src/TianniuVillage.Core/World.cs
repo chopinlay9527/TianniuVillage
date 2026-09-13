@@ -8,6 +8,8 @@ public sealed class World
     public List<Building> Buildings = [];
     public List<Animal> Animals = [];
     public Dictionary<string, int> Stock = new();
+    public Dictionary<string, long> Produced = new();
+    public Dictionary<string, long> Consumed = new();
     public bool WinterClothesAssigned;
     public bool TorchLit;
     public HashSet<string> Researched = new();
@@ -53,12 +55,14 @@ public sealed class World
     public void AddItem(string id, int count)
     {
         Stock[id] = CountItem(id) + count;
+        Produced[id] = Produced.GetValueOrDefault(id) + count;
     }
 
     public bool TryTakeItem(string id, int count)
     {
         if (CountItem(id) < count) return false;
         Stock[id] = CountItem(id) - count;
+        Consumed[id] = Consumed.GetValueOrDefault(id) + count;
         return true;
     }
 
@@ -84,10 +88,11 @@ public sealed class World
         Array.Clear(Map.Blocked);
         foreach (var n in Resources.Values)
             if (n.Kind == ResKind.StoneOutcrop)
-                Map.Blocked[Map.Index(n.X, n.Y)] = true;        foreach (var b in Buildings)
+                Map.Blocked[Map.Index(n.X, n.Y)] = true;
+        foreach (var b in Buildings)
         {
             if (b.Key == "farm") continue;
-            if (b.State is BuildingState.Planned or BuildingState.Ruined) continue;
+            if (b.State == BuildingState.Ruined) continue;
             BlockCells(b, true);
         }
     }

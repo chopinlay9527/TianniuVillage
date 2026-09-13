@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>TianniuVillage.TileSetImport</RootNamespace>
+  </PropertyGroup>
+
+  <!-- 仅用 System.Xml.Linq 解析官方 .tsx（不引入 DotTiled 等外部依赖：
+       wangset 结构简单，标准库足够，且减少供应链面） -->
+
+</Project>

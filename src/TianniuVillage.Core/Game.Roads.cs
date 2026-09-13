@@ -334,8 +334,6 @@ public sealed partial class Game
         return best ?? World.SettleCenter;
     }
 
-    public (int x, int y) ResourceWorkSpotPublic(ResourceNode n) => ResourceWorkSpot(n);
-
     private (int x, int y) GetStoragePos(Villager v)    {
         (int x, int y)? best = null;
         float bestDist = float.MaxValue;
@@ -348,6 +346,4 @@ public sealed partial class Game
         }
         return best ?? World.SettleCenter;
     }
-
-    public void CompleteRoadRepairForTest(Job job) => CompleteRoadRepair(null!, job);
 }

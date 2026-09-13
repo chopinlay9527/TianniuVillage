@@ -23,8 +23,6 @@ public static class ItemDefs
     public static readonly ItemDef Iron = new("iron", "铁锭", ItemCategory.Material, 0f);
     public static readonly ItemDef CopperTool = new("copper_tool", "铜工具", ItemCategory.Material, 0f);
     public static readonly ItemDef IronTool = new("iron_tool", "铁工具", ItemCategory.Material, 0f);
-    public static readonly ItemDef Basket = new("basket", "箩筐", ItemCategory.Material, 0f);
-    public static readonly ItemDef Wheelbarrow = new("wheelbarrow", "独轮车", ItemCategory.Material, 0f);
     public static readonly ItemDef Armor = new("armor", "护具", ItemCategory.Material, 0f);
     public static readonly ItemDef Milk = new("milk", "羊奶", ItemCategory.Food, 35f);
     public static readonly ItemDef Egg = new("egg", "鸡蛋", ItemCategory.Food, 25f);
@@ -36,10 +34,6 @@ public static class ItemDefs
     public static readonly ItemDef Cheese = new("cheese", "奶酪", ItemCategory.Food, 50f);
     public static readonly ItemDef Jerky = new("jerky", "肉干", ItemCategory.Food, 40f);
     public static readonly ItemDef HideCoat = new("hide_coat", "毛皮大衣", ItemCategory.Material, 0f);
-    public static readonly ItemDef Veggie = new("veggie", "蔬菜", ItemCategory.Food, 30f);
-    public static readonly ItemDef Rice = new("rice", "稻米", ItemCategory.Food, 35f);
-    public static readonly ItemDef Bean = new("bean", "豆类", ItemCategory.Food, 28f);
-    public static readonly ItemDef Wheat = new("wheat", "小麦", ItemCategory.Food, 30f);
 
     public static readonly Dictionary<string, ItemDef> All = new()
     {
@@ -60,8 +54,6 @@ public static class ItemDefs
         [Iron.Id] = Iron,
         [CopperTool.Id] = CopperTool,
         [IronTool.Id] = IronTool,
-        [Basket.Id] = Basket,
-        [Wheelbarrow.Id] = Wheelbarrow,
         [Armor.Id] = Armor,
         [Milk.Id] = Milk,
         [Egg.Id] = Egg,
@@ -72,11 +64,7 @@ public static class ItemDefs
         [Herb.Id] = Herb,
         [Cheese.Id] = Cheese,
         [Jerky.Id] = Jerky,
-        [HideCoat.Id] = HideCoat,
-        [Veggie.Id] = Veggie,
-        [Rice.Id] = Rice,
-        [Bean.Id] = Bean,
-        [Wheat.Id] = Wheat
+        [HideCoat.Id] = HideCoat
     };
 
     public static string Name(string id) => All.TryGetValue(id, out var def) ? def.NameZh : id;

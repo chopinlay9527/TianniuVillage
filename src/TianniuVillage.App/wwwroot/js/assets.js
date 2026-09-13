@@ -66,7 +66,7 @@ async function loadCharSheets(onProgress) {
       LpcSheets[s] = await loadImage("assets/lpc/lpc-terrain-" + s + ".png");
       tick();
     }
-    // Wang 表由 wang_data.js script 标签同步加载（window.WANG_DATA），无需 fetch
+    // 地形元数据由 assets/lpc/terrain_profile.js script 标签同步加载（window.TERRAIN_PROFILE），无需 fetch
   })();
   return loadPromise;
 }

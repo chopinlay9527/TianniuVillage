@@ -22,15 +22,11 @@ public sealed partial class Game
     public int TotalBirths;
     public int TotalDeaths;
     public string VillageName = "甜牛村";
-    public List<int> GodPlannedBuildings = [];
     public HashSet<string> UsedNames = [];
 
     public readonly HashSet<int> ResChanged = new();
     public readonly HashSet<int> ResRemoved = new();
     public readonly HashSet<int> RoadsChanged = new();
-    private readonly List<(int x, int y)> _pendingBuildSites = [];
-    public IReadOnlyList<(int x, int y)> PendingBuildSites => _pendingBuildSites;
-    public void ClearPendingBuildSites() => _pendingBuildSites.Clear();
 
     public int Day => Tick / Balance.MinutesPerDay;
     public int MinuteOfDay => Tick % Balance.MinutesPerDay;
@@ -185,6 +181,7 @@ public sealed partial class Game
         RegenResources();
         ReplenishAnimals();
         EnrichmentDailyTick();
+        Jobs.PruneStale(Tick, this);
         foreach (var v in Villagers)
         {
             if (!v.Alive) continue;

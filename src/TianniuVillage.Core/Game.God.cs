@@ -20,6 +20,7 @@ public sealed partial class Game
             if (v.Health < 100f || v.Ill) healed++;
             v.Health = 100f;
             v.Ill = false;
+            v.Disease = DiseaseType.None;
             v.Satiety = Math.Max(v.Satiety, 80f);
             v.Energy = Math.Max(v.Energy, 80f);
             v.AddMood("神明的祝福洒遍全身", 10f, 48f);
@@ -51,6 +52,7 @@ public sealed partial class Game
         {
             v.Ill = true;
             v.IllnessDaysLeft = Rng.NextFloat(8, 15);
+            v.Disease = DiseaseType.Plague;
             v.AddMood("瘟疫缠身", -10f, 120f);
         }
         Log($"【瘟疫】可怕的疫病在村里蔓延，{count}位村民病倒了", LogSeverity.Important);

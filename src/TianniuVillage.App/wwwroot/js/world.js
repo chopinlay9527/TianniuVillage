@@ -14,6 +14,17 @@ class WorldView {
   }
 
   buildFromInit(msg) {
+    if (this.worldRoot) {
+      for (const s of this.chunkSprites) {
+        if (!s) continue;
+        if (s.parent) this.worldRoot.removeChild(s);
+        s.destroy({ texture: true, baseTexture: true });
+      }
+    }
+    this.chunkSprites = [];
+    this.chunkCanvases = [];
+    this.chunkRes = [];
+    this.resById = new Map();
     this.mapW = msg.w;
     this.mapH = msg.h;
     const bytes = Uint8Array.from(atob(msg.tiles), ch => ch.charCodeAt(0));
@@ -196,7 +207,8 @@ class WorldView {
         for (let x = 0; x < mmW; x++) {
           const wx = Math.min(this.mapW - 1, Math.floor(x / f));
           const wy = Math.min(this.mapH - 1, Math.floor(y / f));
-          ctx.fillStyle = colors[this.terrainAt(wx, wy)];
+          const t = this.terrainAt(wx, wy);
+          ctx.fillStyle = colors[t] || colors[0];
           ctx.fillRect(x, y, 1, 1);
         }
       }

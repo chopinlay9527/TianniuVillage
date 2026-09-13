@@ -79,8 +79,10 @@ dotnet test tests/TianniuVillage.Tests
 TianniuVillage/
 ├── src/
 │   ├── TianniuVillage.Core/           # 纯 C# 模拟引擎（无 UI 依赖）
-│   │   ├── World/                     # 地形·资源·村庄·动物
-│   │   ├── Game.*.cs                  # 12 个 partial：需求/AI/经济/社交/科技
+│   │   ├── Game.*.cs                  # 13 个 partial：需求/AI/经济/社交/科技
+│   │   ├── WorldGen/                  # 地形/河溪/海岸/资源生成
+│   │   ├── Noise/                     # 快速噪声（FastNoiseLite）
+│   │   ├── Generated/                 # 图集生成物（TerrainCoverage.g.cs）
 │   │   ├── TechDefs.cs                # 13 项三阶科技树
 │   │   └── SaveService.cs             # JSON 存档
 │   └── TianniuVillage.App/            # WinForms + WebView2 宿主
@@ -91,8 +93,10 @@ TianniuVillage/
 │           ├── js/lightingFilter.js   # GLSL 逐像素光照 Shader
 │           ├── js/main.js             # 入口·相机·桥接
 │           └── vendor/pixi.min.js     # PixiJS 渲染引擎
-├── tests/TianniuVillage.Tests/        # 38 个单元测试
-└── tools/TianniuVillage.Headless/     # 无头平衡验证工具
+├── tests/TianniuVillage.Tests/        # xUnit 单元测试
+└── tools/
+    ├── TianniuVillage.Headless/       # 无头平衡验证工具
+    └── TianniuVillage.TileSetImport/  # LPC 图集(.tsx)→地形 profile 导入工具
 ```
 
 ## 📊 模拟数据（4 年参考）
@@ -113,16 +117,18 @@ TianniuVillage/
 | 宿主 | WinForms + WebView2 |
 | 前端渲染 | PixiJS (WebGL) |
 | 光照 | 自定义 GLSL Fragment Shader |
-| 美术 | 村民：Ninja Adventure 素材包（CC0）16×16 四向行走动画；地形/建筑：程序化像素画（Canvas 2D 生成） |
+| 美术 | 地形：LPC Revised 四季地形（OGA-BY 3.0，32×32，官方 Tiled Terrain Set 驱动）；村民/动物：Ninja Adventure（CC0）16×16；物件：Kenney Tiny Town/Farm（CC0）16×16 + 程序化补充 |
 | 测试 | xUnit |
 | 存档 | System.Text.Json |
 
 ## 🎨 素材来源
 
+- **地形（四季）**：LPC Revised — *[LPC Revised] Fully Configured 4-Seasons Tilesets for Tiled Map Editor*，作者 JaidynReiman（整理/配置）及 Eliza Wyatt (DeathsDarling) 等 LPC 贡献者，**[OGA-BY 3.0](https://opengameart.org/content/oga-by-30-faq) / CC-BY 3.0 双许可（需署名）**。32×32，含官方 Tiled Terrain Set 定义（`src/TianniuVillage.App/wwwroot/assets/lpc/official/*.tsx`）。署名见 `src/TianniuVillage.App/wwwroot/assets/lpc/official/CREDITS.txt`。
 - **村民/动物角色**：Ninja Adventure Asset Pack — 作者 [pixel-boy](https://pixel-boy.itch.io/ninja-adventure-asset-pack)，[CC0](https://creativecommons.org/publicdomain/zero/1.0/)。25 个角色 + 鸡/猪/牛家畜。
-- **地形与资源物件（树/浆果丛/药草等）**：Kenney **Tiny Town** + **Tiny Farm** — [kenney.nl](https://kenney.nl/assets/tiny-town)，[CC0](https://creativecommons.org/publicdomain/zero/1.0/)。草地/沙滩/水域/森林(罩色派生)/高地/山 + 圆冠树 ×4 + 灌木/浆果/药草，水岸自动白沫边。
-- 其余（道路、建筑、矿脉、蘑菇等）为本项目运行时程序化生成。
+- **资源物件（树/浆果丛/药草等）**：Kenney **Tiny Town** + **Tiny Farm** — [kenney.nl](https://kenney.nl/assets/tiny-town)，[CC0](https://creativecommons.org/publicdomain/zero/1.0/)。
+- 其余（道路、部分建筑/物件、矿脉、蘑菇等）为本项目运行时程序化生成。
+- 完整逐项许可与署名：见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)。
 
 ## 📜 许可
 
-MIT License（游戏代码；素材遵循各自许可，均为 CC0）
+MIT License（游戏代码）。**素材各自许可不同**：LPC 地形为 OGA-BY 3.0 / CC-BY 3.0（需署名），Ninja Adventure 与 Kenney 素材为 CC0。再分发时须保留署名。

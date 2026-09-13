@@ -95,6 +95,8 @@ function connectHost() {
     const msg = e.data;
     if (msg.type === "init") onInit(msg);
     else if (msg.type === "update") onUpdate(msg);
+    else if (msg.type === "speedState") UI.setSpeedState(msg.value);
+    else if (msg.type === "overview") UI.renderOverview(msg);
   });
   window.chrome.webview.postMessage(JSON.stringify({ type: "ready" }));
 }
@@ -113,6 +115,8 @@ async function doInit(msg) {
   if (Object.keys(CharSheets).length === 0) await loadCharSheets();
   handleSeason(msg.stats.season);
   lastLogSeq = Math.max(0, ...(msg.logs || []).map(l => l.seq));
+  UI.lastSocialSeq = 0;
+  UI.lastVillagers = [];
   gameView.buildFromInit(msg);
   const vc = msg.buildings.find(b => b.k === "villagecenter");
   gameView.settleCenter = vc ? { x: vc.x + 1, y: vc.y + 1 } : { x: msg.w >> 1, y: msg.h >> 1 };
@@ -120,6 +124,8 @@ async function doInit(msg) {
   worldRoot.addChild(animalLayer.container);
   villagerRoot.addChild(villagerLayer.container);
   camera.clampToMap(gameView.mapW * TILE, gameView.mapH * TILE);
+  cloudLayer.worldW = gameView.mapW * TILE;
+  cloudLayer.worldH = gameView.mapH * TILE;
   const anchor = msg.villagers.length > 0
     ? msg.villagers[0] : { x: gameView.mapW / 2, y: gameView.mapH / 2 };
   camera.centerOn(anchor.x * TILE, anchor.y * TILE);
